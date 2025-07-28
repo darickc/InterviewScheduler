@@ -1,0 +1,473 @@
+@page "/appointments"
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Enums
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ICalendarService CalendarService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Appointments</PageTitle>
+
+<h1>Appointment Management</h1>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/appointments/new")'>
+            <i class="bi bi-plus-circle"></i> Schedule New Appointment
+        </button>
+    </div>
+    <div class="col-md-6 text-end">
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary @(viewFilter == "all" ? "active" : "")" @onclick='() => SetFilter("all")'>
+                All (@appointments.Count)
+            </button>
+            <button class="btn btn-outline-warning @(viewFilter == "pending" ? "active" : "")" @onclick='() => SetFilter("pending")'>
+                Pending (@appointments.Count(a => a.Status == AppointmentStatus.Pending))
+            </button>
+            <button class="btn btn-outline-success @(viewFilter == "confirmed" ? "active" : "")" @onclick='() => SetFilter("confirmed")'>
+                Confirmed (@appointments.Count(a => a.Status == AppointmentStatus.Confirmed))
+            </button>
+            <button class="btn btn-outline-danger @(viewFilter == "cancelled" ? "active" : "")" @onclick='() => SetFilter("cancelled")'>
+                Cancelled (@appointments.Count(a => a.Status == AppointmentStatus.Cancelled))
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input type="text" class="form-control" placeholder="Search appointments..."
+               @bind="searchTerm" @bind:event="oninput" />
+    </div>
+    <div class="col-md-3">
+        <select class="form-control" @bind="leaderFilter">
+            <option value="">All Leaders</option>
+            @foreach (var leader in leaders)
+            {
+                <option value="@leader.Id">@leader.Name (@leader.Title)</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-control" @bind="dateFilter">
+            <option value="">All Dates</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-outline-secondary" @onclick="ClearFilters">Clear Filters</button>
+    </div>
+</div>
+
+@if (filteredAppointments.Any())
+{
+    <div class="row">
+        @foreach (var dayGroup in filteredAppointments.GroupBy(a => a.ScheduledTime.Date).OrderBy(g => g.Key))
+        {
+            <div class="col-md-12 mb-4">
+                <h4>@dayGroup.Key.ToString("dddd, MMMM dd, yyyy")</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Contact</th>
+                                <th>Leader</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var appointment in dayGroup.OrderBy(a => a.ScheduledTime))
+                            {
+                                <tr class="@GetRowClass(appointment)">
+                                    <td>
+                                        <strong>@appointment.ScheduledTime.ToString("h:mm tt")</strong>
+                                        <br><small class="text-muted">@appointment.AppointmentType?.Duration min</small>
+                                    </td>
+                                    <td>
+                                        <strong>@appointment.Contact?.Salutation @appointment.Contact?.FullName</strong>
+                                        <br><small class="text-muted">@appointment.Contact?.PhoneNumber</small>
+                                        @if (appointment.Contact?.IsMinor == true)
+                                        {
+                                            <br><span class="badge bg-info">Minor</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@appointment.Leader?.Name</strong>
+                                        <br><small class="text-muted">@appointment.Leader?.Title</small>
+                                    </td>
+                                    <td>@appointment.AppointmentType?.Name</td>
+                                    <td>
+                                        @if (appointment.Status == AppointmentStatus.Pending)
+                                        {
+                                            <span class="badge bg-warning">Pending</span>
+                                        }
+                                        else if (appointment.Status == AppointmentStatus.Confirmed)
+                                        {
+                                            <span class="badge bg-success">Confirmed</span>
+                                        }
+                                        else if (appointment.Status == AppointmentStatus.Cancelled)
+                                        {
+                                            <span class="badge bg-danger">Cancelled</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group-vertical btn-group-sm">
+                                            @if (appointment.Status == AppointmentStatus.Pending)
+                                            {
+                                                <button class="btn btn-outline-success" @onclick="() => ConfirmAppointment(appointment)">
+                                                    <i class="bi bi-check"></i> Confirm
+                                                </button>
+                                            }
+                                            
+                                            @if (appointment.Status != AppointmentStatus.Cancelled)
+                                            {
+                                                <button class="btn btn-outline-danger" @onclick="() => CancelAppointment(appointment)">
+                                                    <i class="bi bi-x"></i> Cancel
+                                                </button>
+                                            }
+                                            
+                                            <button class="btn btn-outline-primary" @onclick="() => ViewDetails(appointment)">
+                                                <i class="bi bi-eye"></i> Details
+                                            </button>
+                                            
+                                            @if (!string.IsNullOrEmpty(appointment.Contact?.PhoneNumber))
+                                            {
+                                                <button class="btn btn-outline-info" @onclick="() => SendSMSReminder(appointment)">
+                                                    <i class="bi bi-phone"></i> SMS
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="text-center py-5">
+        <i class="bi bi-calendar-x" style="font-size: 3rem; color: #6c757d;"></i>
+        <h4 class="mt-3">No Appointments Found</h4>
+        <p class="text-muted">
+            @if (viewFilter == "all")
+            {
+                <span>No appointments have been scheduled yet.</span>
+            }
+            else
+            {
+                <span>No @viewFilter appointments found. Try adjusting your filters.</span>
+            }
+        </p>
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/appointments/new")'>
+            Schedule Your First Appointment
+        </button>
+    </div>
+}
+
+<!-- Details Modal -->
+@if (selectedAppointment != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Appointment Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetails"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Contact Information</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td>@selectedAppointment.Contact?.Salutation @selectedAppointment.Contact?.FullName</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phone:</strong></td>
+                                    <td>@selectedAppointment.Contact?.PhoneNumber</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Age:</strong></td>
+                                    <td>@selectedAppointment.Contact?.Age @(selectedAppointment.Contact?.IsMinor == true ? "(Minor)" : "")</td>
+                                </tr>
+                                @if (selectedAppointment.Contact?.HeadOfHouse != null)
+                                {
+                                    <tr>
+                                        <td><strong>Head of House:</strong></td>
+                                        <td>@selectedAppointment.Contact.HeadOfHouse.FullName</td>
+                                    </tr>
+                                }
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Appointment Information</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Leader:</strong></td>
+                                    <td>@selectedAppointment.Leader?.Name (@selectedAppointment.Leader?.Title)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type:</strong></td>
+                                    <td>@selectedAppointment.AppointmentType?.Name</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Date & Time:</strong></td>
+                                    <td>@selectedAppointment.ScheduledTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Duration:</strong></td>
+                                    <td>@selectedAppointment.AppointmentType?.Duration minutes</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        @if (selectedAppointment.Status == AppointmentStatus.Pending)
+                                        {
+                                            <span class="badge bg-warning">Pending</span>
+                                        }
+                                        else if (selectedAppointment.Status == AppointmentStatus.Confirmed)
+                                        {
+                                            <span class="badge bg-success">Confirmed</span>
+                                        }
+                                        else if (selectedAppointment.Status == AppointmentStatus.Cancelled)
+                                        {
+                                            <span class="badge bg-danger">Cancelled</span>
+                                        }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Created:</strong></td>
+                                    <td>@selectedAppointment.CreatedDate.ToString("MMM dd, yyyy 'at' h:mm tt")</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
+                    {
+                        <h6 class="mt-3">Message Template</h6>
+                        <div class="alert alert-info">
+                            @GetFormattedMessage(selectedAppointment)
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Close</button>
+                    @if (selectedAppointment.Status == AppointmentStatus.Pending)
+                    {
+                        <button type="button" class="btn btn-success" @onclick="() => ConfirmAppointment(selectedAppointment)">
+                            Confirm Appointment
+                        </button>
+                    }
+                    @if (selectedAppointment.Status != AppointmentStatus.Cancelled)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="() => CancelAppointment(selectedAppointment)">
+                            Cancel Appointment
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Appointment> appointments = new();
+    private List<Leader> leaders = new();
+    private Appointment? selectedAppointment;
+    
+    // Filters
+    private string viewFilter = "all";
+    private string searchTerm = "";
+    private string leaderFilter = "";
+    private string dateFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        appointments = await DbContext.Appointments
+            .Include(a => a.Contact)
+                .ThenInclude(c => c!.HeadOfHouse)
+            .Include(a => a.Leader)
+            .Include(a => a.AppointmentType)
+            .OrderBy(a => a.ScheduledTime)
+            .ToListAsync();
+
+        leaders = await DbContext.Leaders
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Title)
+            .ToListAsync();
+    }
+
+    private IEnumerable<Appointment> filteredAppointments
+    {
+        get
+        {
+            var filtered = appointments.AsEnumerable();
+
+            // Status filter
+            if (viewFilter != "all")
+            {
+                var status = viewFilter switch
+                {
+                    "pending" => AppointmentStatus.Pending,
+                    "confirmed" => AppointmentStatus.Confirmed,
+                    "cancelled" => AppointmentStatus.Cancelled,
+                    _ => AppointmentStatus.Pending
+                };
+                filtered = filtered.Where(a => a.Status == status);
+            }
+
+            // Text search
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filtered = filtered.Where(a =>
+                    (a.Contact?.FirstName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (a.Contact?.LastName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (a.Contact?.PhoneNumber?.Contains(searchTerm) == true) ||
+                    (a.Leader?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (a.AppointmentType?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true));
+            }
+
+            // Leader filter
+            if (!string.IsNullOrWhiteSpace(leaderFilter) && int.TryParse(leaderFilter, out var leaderId))
+            {
+                filtered = filtered.Where(a => a.LeaderId == leaderId);
+            }
+
+            // Date filter
+            if (!string.IsNullOrWhiteSpace(dateFilter))
+            {
+                var today = DateTime.Today;
+                filtered = dateFilter switch
+                {
+                    "today" => filtered.Where(a => a.ScheduledTime.Date == today),
+                    "week" => filtered.Where(a => a.ScheduledTime.Date >= today && a.ScheduledTime.Date <= today.AddDays(7)),
+                    "month" => filtered.Where(a => a.ScheduledTime.Date >= today && a.ScheduledTime.Date <= today.AddDays(30)),
+                    "upcoming" => filtered.Where(a => a.ScheduledTime.Date >= today),
+                    "past" => filtered.Where(a => a.ScheduledTime.Date < today),
+                    _ => filtered
+                };
+            }
+
+            return filtered.OrderBy(a => a.ScheduledTime);
+        }
+    }
+
+    private void SetFilter(string filter)
+    {
+        viewFilter = filter;
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        leaderFilter = "";
+        dateFilter = "";
+        viewFilter = "all";
+    }
+
+    private string GetRowClass(Appointment appointment)
+    {
+        if (appointment.ScheduledTime.Date < DateTime.Today)
+            return "table-secondary";
+        
+        if (appointment.Status == AppointmentStatus.Cancelled)
+            return "table-danger";
+        
+        if (appointment.Status == AppointmentStatus.Confirmed)
+            return "table-success";
+        
+        return "";
+    }
+
+    private async Task ConfirmAppointment(Appointment appointment)
+    {
+        appointment.Status = AppointmentStatus.Confirmed;
+        await DbContext.SaveChangesAsync();
+        await LoadData();
+        CloseDetails();
+    }
+
+    private async Task CancelAppointment(Appointment appointment)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to cancel the appointment with {appointment.Contact?.FullName}?");
+        
+        if (confirmed)
+        {
+            appointment.Status = AppointmentStatus.Cancelled;
+            
+            // Try to delete from Google Calendar
+            if (!string.IsNullOrEmpty(appointment.GoogleEventId) && !string.IsNullOrEmpty(appointment.Leader?.GoogleCalendarId))
+            {
+                try
+                {
+                    await CalendarService.DeleteEventAsync(appointment.Leader.GoogleCalendarId, appointment.GoogleEventId);
+                }
+                catch
+                {
+                    // Calendar deletion failed, but appointment is still cancelled
+                }
+            }
+            
+            await DbContext.SaveChangesAsync();
+            await LoadData();
+            CloseDetails();
+        }
+    }
+
+    private void ViewDetails(Appointment appointment)
+    {
+        selectedAppointment = appointment;
+    }
+
+    private void CloseDetails()
+    {
+        selectedAppointment = null;
+    }
+
+    private async Task SendSMSReminder(Appointment appointment)
+    {
+        if (appointment.Contact?.PhoneNumber == null || appointment.AppointmentType?.MessageTemplate == null)
+            return;
+
+        var message = GetFormattedMessage(appointment);
+        var encodedMessage = Uri.EscapeDataString(message);
+        var smsUrl = $"sms:{appointment.Contact.PhoneNumber}?body={encodedMessage}";
+        
+        await JSRuntime.InvokeVoidAsync("open", smsUrl, "_blank");
+    }
+
+    private string GetFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType?.MessageTemplate == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        return appointment.AppointmentType.MessageTemplate
+            .Replace("{ContactName}", appointment.Contact.Salutation + " " + appointment.Contact.FullName)
+            .Replace("{LeaderName}", appointment.Leader.Name)
+            .Replace("{DateTime}", appointment.ScheduledTime.ToString("dddd, MMMM dd 'at' h:mm tt"))
+            .Replace("{Duration}", appointment.AppointmentType.Duration.ToString());
+    }
+}

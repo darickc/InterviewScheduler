@@ -1,0 +1,280 @@
+@page "/appointment-types"
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Appointment Types</PageTitle>
+
+<h1>Appointment Types Management</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>Appointment Types</h3>
+            </div>
+            <div class="card-body">
+                @if (appointmentTypes.Any())
+                {
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Duration (minutes)</th>
+                                <th>Message Template</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var type in appointmentTypes)
+                            {
+                                <tr>
+                                    <td>@type.Name</td>
+                                    <td>@type.Duration</td>
+                                    <td class="text-truncate" style="max-width: 200px;" title="@type.MessageTemplate">
+                                        @type.MessageTemplate
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary me-2" @onclick="() => EditAppointmentType(type)">
+                                            Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteAppointmentType(type)">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p>No appointment types found. Create one to get started.</p>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>@(editingType == null ? "Add New" : "Edit") Appointment Type</h3>
+            </div>
+            <div class="card-body">
+                <EditForm Model="appointmentTypeForm" OnValidSubmit="SaveAppointmentType">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name *</label>
+                        <InputText id="name" class="form-control" @bind-Value="appointmentTypeForm.Name" />
+                        <ValidationMessage For="() => appointmentTypeForm.Name" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="duration" class="form-label">Duration (minutes) *</label>
+                        <InputNumber id="duration" class="form-control" @bind-Value="appointmentTypeForm.Duration" />
+                        <ValidationMessage For="() => appointmentTypeForm.Duration" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="messageTemplate" class="form-label">Message Template *</label>
+                        <InputTextArea id="messageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MessageTemplate" />
+                        <ValidationMessage For="() => appointmentTypeForm.MessageTemplate" />
+                        <small class="form-text text-muted">
+                            Available placeholders: {ContactName}, {LeaderName}, {DateTime}, {Duration}
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">
+                            @(editingType == null ? "Add" : "Update")
+                        </button>
+                        @if (editingType != null)
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">
+                                Cancel
+                            </button>
+                        }
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h4>Default Templates</h4>
+            </div>
+            <div class="card-body">
+                <p><small>Click to use as template:</small></p>
+                <div class="list-group">
+                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.GenericMeeting)">
+                        <strong>Generic Meeting</strong><br />
+                        <small>General purpose appointment</small>
+                    </button>
+                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.TempleRecommend)">
+                        <strong>Temple Recommend</strong><br />
+                        <small>Temple recommend interview</small>
+                    </button>
+                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.Tithing)">
+                        <strong>Tithing Settlement</strong><br />
+                        <small>Annual tithing settlement</small>
+                    </button>
+                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.Counseling)">
+                        <strong>Counseling</strong><br />
+                        <small>Personal counseling session</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AppointmentType> appointmentTypes = new();
+    private AppointmentTypeForm appointmentTypeForm = new();
+    private AppointmentType? editingType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAppointmentTypes();
+    }
+
+    private async Task LoadAppointmentTypes()
+    {
+        appointmentTypes = await DbContext.AppointmentTypes
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    private async Task SaveAppointmentType()
+    {
+        try
+        {
+            if (editingType == null)
+            {
+                // Add new appointment type
+                var newType = new AppointmentType
+                {
+                    Name = appointmentTypeForm.Name,
+                    Duration = appointmentTypeForm.Duration,
+                    MessageTemplate = appointmentTypeForm.MessageTemplate
+                };
+                DbContext.AppointmentTypes.Add(newType);
+            }
+            else
+            {
+                // Update existing appointment type
+                editingType.Name = appointmentTypeForm.Name;
+                editingType.Duration = appointmentTypeForm.Duration;
+                editingType.MessageTemplate = appointmentTypeForm.MessageTemplate;
+            }
+
+            await DbContext.SaveChangesAsync();
+            await LoadAppointmentTypes();
+            ResetForm();
+        }
+        catch (Exception ex)
+        {
+            // Handle error (would typically use proper error handling/logging)
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving appointment type: {ex.Message}");
+        }
+    }
+
+    private void EditAppointmentType(AppointmentType type)
+    {
+        editingType = type;
+        appointmentTypeForm = new AppointmentTypeForm
+        {
+            Name = type.Name,
+            Duration = type.Duration,
+            MessageTemplate = type.MessageTemplate
+        };
+    }
+
+    private async Task DeleteAppointmentType(AppointmentType type)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{type.Name}'?");
+        if (confirmed)
+        {
+            DbContext.AppointmentTypes.Remove(type);
+            await DbContext.SaveChangesAsync();
+            await LoadAppointmentTypes();
+        }
+    }
+
+    private void CancelEdit()
+    {
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        editingType = null;
+        appointmentTypeForm = new AppointmentTypeForm();
+    }
+
+    private void UseTemplate(DefaultTemplate template)
+    {
+        appointmentTypeForm.Name = template.Name;
+        appointmentTypeForm.Duration = template.Duration;
+        appointmentTypeForm.MessageTemplate = template.MessageTemplate;
+    }
+
+    public class AppointmentTypeForm
+    {
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = "";
+
+        [Required]
+        [Range(5, 180)]
+        public int Duration { get; set; } = 30;
+
+        [Required]
+        [StringLength(500)]
+        public string MessageTemplate { get; set; } = "";
+    }
+
+    public class DefaultTemplate
+    {
+        public string Name { get; set; } = "";
+        public int Duration { get; set; }
+        public string MessageTemplate { get; set; } = "";
+    }
+
+    public static class DefaultTemplates
+    {
+        public static DefaultTemplate GenericMeeting => new()
+        {
+            Name = "Generic Meeting",
+            Duration = 30,
+            MessageTemplate = "Hello {ContactName}, you have been scheduled for a meeting with {LeaderName} on {DateTime}. Please confirm your attendance."
+        };
+
+        public static DefaultTemplate TempleRecommend => new()
+        {
+            Name = "Temple Recommend Interview",
+            Duration = 20,
+            MessageTemplate = "Dear {ContactName}, you have a temple recommend interview scheduled with {LeaderName} on {DateTime}. Please come prepared with any questions you may have."
+        };
+
+        public static DefaultTemplate Tithing => new()
+        {
+            Name = "Tithing Settlement",
+            Duration = 15,
+            MessageTemplate = "Hi {ContactName}, your tithing settlement appointment with {LeaderName} is scheduled for {DateTime}. Please bring your donation records."
+        };
+
+        public static DefaultTemplate Counseling => new()
+        {
+            Name = "Personal Counseling",
+            Duration = 45,
+            MessageTemplate = "Dear {ContactName}, you have a counseling appointment with {LeaderName} on {DateTime}. This will be a confidential discussion."
+        };
+    }
+}

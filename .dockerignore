@@ -1,0 +1,41 @@
+# Ignore build artifacts and temporary files
+**/bin
+**/obj
+**/out
+**/.vs
+**/.vscode
+
+# Ignore version control
+.git
+.gitignore
+
+# Ignore OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore documentation and planning files
+*.md
+PLAN.md
+PROGRESS.md
+
+# Ignore database files
+*.db
+*.db-shm
+*.db-wal
+
+# Ignore SSL certificates and credentials
+ssl/
+CalendarCredentials/
+
+# Ignore Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Ignore test files
+**/tests/**

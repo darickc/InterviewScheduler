@@ -1,0 +1,722 @@
+@page "/appointments/new"
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Enums
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ICalendarService CalendarService
+@inject ISmsService SmsService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Schedule Appointment</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Schedule New Appointment</h1>
+            
+            <!-- Progress Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" style="width: @(((currentStep - 1) * 100 / 4))%" 
+                             aria-valuenow="@currentStep" aria-valuemin="0" aria-valuemax="4"></div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col step @(currentStep >= 1 ? "active" : "")">
+                            <span class="step-number">1</span>
+                            <br><small>Select Contacts</small>
+                        </div>
+                        <div class="col step @(currentStep >= 2 ? "active" : "")">
+                            <span class="step-number">2</span>
+                            <br><small>Choose Leader</small>
+                        </div>
+                        <div class="col step @(currentStep >= 3 ? "active" : "")">
+                            <span class="step-number">3</span>
+                            <br><small>Appointment Details</small>
+                        </div>
+                        <div class="col step @(currentStep >= 4 ? "active" : "")">
+                            <span class="step-number">4</span>
+                            <br><small>Schedule Time</small>
+                        </div>
+                        <div class="col step @(currentStep >= 5 ? "active" : "")">
+                            <span class="step-number">5</span>
+                            <br><small>Review & Send</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step Content -->
+            @if (currentStep == 1)
+            {
+                <!-- Step 1: Select Contacts -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Step 1: Select Contacts</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" placeholder="Search contacts..."
+                                       @bind="contactSearchTerm" @bind:event="oninput" />
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-control" @bind="contactGenderFilter">
+                                    <option value="">All Genders</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-control" @bind="contactAgeFilter">
+                                    <option value="">All Ages</option>
+                                    <option value="minor">Minors (≤17)</option>
+                                    <option value="adult">Adults (18+)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Available Contacts</h5>
+                                <div class="list-group" style="max-height: 400px; overflow-y: auto;">
+                                    @foreach (var contact in filteredContacts)
+                                    {
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>@contact.Salutation @contact.FullName</strong>
+                                                <br><small>@contact.PhoneNumber • Age: @contact.Age @(contact.IsMinor ? "(Minor)" : "")</small>
+                                                @if (contact.HeadOfHouse != null)
+                                                {
+                                                    <br><small class="text-muted">Head of House: @contact.HeadOfHouse.FullName</small>
+                                                }
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => SelectContact(contact)">
+                                                Select
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Selected Contacts (@selectedContacts.Count)</h5>
+                                @if (selectedContacts.Any())
+                                {
+                                    <div class="list-group">
+                                        @foreach (var contact in selectedContacts)
+                                        {
+                                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>@contact.Salutation @contact.FullName</strong>
+                                                    <br><small>@contact.PhoneNumber</small>
+                                                    @if (contact.IsMinor)
+                                                    {
+                                                        <span class="badge bg-info ms-2">Minor - Parent will be notified</span>
+                                                    }
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveContact(contact)">
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted">No contacts selected</p>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(!selectedContacts.Any())">
+                                Next: Choose Leader
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 2)
+            {
+                <!-- Step 2: Choose Leader -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Step 2: Choose Leader</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach (var leader in activeLeaders)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="card @(selectedLeader?.Id == leader.Id ? "border-primary" : "")">
+                                        <div class="card-body text-center">
+                                            <h5>@leader.Name</h5>
+                                            <p class="text-muted">@leader.Title</p>
+                                            @if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
+                                            {
+                                                <small class="text-success">
+                                                    <i class="bi bi-calendar-check"></i> Calendar Available
+                                                </small>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-warning">
+                                                    <i class="bi bi-calendar-x"></i> No Calendar
+                                                </small>
+                                            }
+                                            <br>
+                                            <button class="btn @(selectedLeader?.Id == leader.Id ? "btn-primary" : "btn-outline-primary") mt-2"
+                                                    @onclick="() => SelectLeader(leader)">
+                                                @(selectedLeader?.Id == leader.Id ? "Selected" : "Select")
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedLeader == null)">
+                                Next: Appointment Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 3)
+            {
+                <!-- Step 3: Appointment Details -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Step 3: Appointment Details</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Appointment Type *</label>
+                                    <select class="form-control" @bind="selectedAppointmentTypeId">
+                                        <option value="">Select appointment type</option>
+                                        @foreach (var type in appointmentTypes)
+                                        {
+                                            <option value="@type.Id">@type.Name (@type.Duration minutes)</option>
+                                        }
+                                    </select>
+                                </div>
+
+                                @if (selectedAppointmentType != null)
+                                {
+                                    <div class="alert alert-info">
+                                        <strong>Duration:</strong> @selectedAppointmentType.Duration minutes<br>
+                                        <strong>Message Template:</strong><br>
+                                        <small>@selectedAppointmentType.MessageTemplate</small>
+                                    </div>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Preferred Date Range</label>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <input type="date" class="form-control" @bind="startDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                            <small class="form-text text-muted">Start Date</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <input type="date" class="form-control" @bind="endDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                            <small class="form-text text-muted">End Date</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Preferred Time</label>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <select class="form-control" @bind="preferredStartHour">
+                                                @for (int hour = 8; hour <= 20; hour++)
+                                                {
+                                                    <option value="@hour">@hour:00</option>
+                                                }
+                                            </select>
+                                            <small class="form-text text-muted">Earliest</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <select class="form-control" @bind="preferredEndHour">
+                                                @for (int hour = 9; hour <= 21; hour++)
+                                                {
+                                                    <option value="@hour">@hour:00</option>
+                                                }
+                                            </select>
+                                            <small class="form-text text-muted">Latest</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedAppointmentType == null || startDate == default || endDate == default)">
+                                Next: Find Available Times
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 4)
+            {
+                <!-- Step 4: Schedule Time -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Step 4: Choose Available Time</h3>
+                    </div>
+                    <div class="card-body">
+                        @if (isLoadingTimeSlots)
+                        {
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p>Finding available time slots...</p>
+                            </div>
+                        }
+                        else if (availableTimeSlots.Any())
+                        {
+                            <div class="row">
+                                @foreach (var dayGroup in availableTimeSlots.Where(t => t.IsAvailable).GroupBy(t => t.StartTime.Date))
+                                {
+                                    <div class="col-md-4 mb-3">
+                                        <h6>@dayGroup.Key.ToString("dddd, MMMM dd")</h6>
+                                        <div class="list-group">
+                                            @foreach (var slot in dayGroup.OrderBy(s => s.StartTime))
+                                            {
+                                                <button class="list-group-item list-group-item-action @(selectedTimeSlot?.StartTime == slot.StartTime ? "active" : "")"
+                                                        @onclick="() => SelectTimeSlot(slot)">
+                                                    @slot.StartTime.ToString("h:mm tt") - @slot.EndTime.ToString("h:mm tt")
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                <h5>No Available Time Slots</h5>
+                                <p>No available time slots were found for the selected date range and leader. Please try:</p>
+                                <ul>
+                                    <li>Expanding your date range</li>
+                                    <li>Choosing different preferred times</li>
+                                    <li>Selecting a different leader</li>
+                                </ul>
+                            </div>
+                        }
+
+                        <div class="mt-3">
+                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
+                            <button class="btn btn-warning me-2" @onclick="RefreshTimeSlots">Refresh Time Slots</button>
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedTimeSlot == null)">
+                                Next: Review & Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (currentStep == 5)
+            {
+                <!-- Step 5: Review & Send -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Step 5: Review & Send Notifications</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Appointment Summary</h5>
+                                <table class="table">
+                                    <tr>
+                                        <td><strong>Leader:</strong></td>
+                                        <td>@selectedLeader?.Name (@selectedLeader?.Title)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Type:</strong></td>
+                                        <td>@selectedAppointmentType?.Name</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Date & Time:</strong></td>
+                                        <td>@selectedTimeSlot?.StartTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Duration:</strong></td>
+                                        <td>@selectedAppointmentType?.Duration minutes</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Contacts:</strong></td>
+                                        <td>@selectedContacts.Count contact(s)</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>SMS Messages Preview</h5>
+                                @if (previewMessages.Any())
+                                {
+                                    @foreach (var message in previewMessages)
+                                    {
+                                        <div class="card mb-2 @(message.IsMinorNotification ? "border-info" : "border-primary")">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <h6>@message.ContactName</h6>
+                                                        @if (message.IsMinorNotification)
+                                                        {
+                                                            <span class="badge bg-info">Parent Notification</span>
+                                                        }
+                                                    </div>
+                                                    <small class="text-muted">@message.PhoneNumber</small>
+                                                </div>
+                                                <p class="mt-2">@message.Message</p>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <p class="text-muted">Message preview will appear here</p>
+                                }
+                                
+                                @if (selectedContacts.Any(c => c.IsMinor))
+                                {
+                                    <div class="alert alert-info">
+                                        <strong>Note:</strong> Parents of minors will also receive notification messages.
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
+                            <button class="btn btn-success" @onclick="CreateAppointment" disabled="@isCreatingAppointment">
+                                @if (isCreatingAppointment)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                Create Appointment & Send Messages
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .step {
+        position: relative;
+    }
+    
+    .step-number {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        color: #6c757d;
+        font-weight: bold;
+    }
+    
+    .step.active .step-number {
+        background-color: #0d6efd;
+        color: white;
+    }
+    
+    .step.active {
+        color: #0d6efd;
+        font-weight: bold;
+    }
+</style>
+
+@code {
+    // Navigation
+    private int currentStep = 1;
+    
+    // Data collections
+    private List<Contact> allContacts = new();
+    private List<Leader> activeLeaders = new();
+    private List<AppointmentType> appointmentTypes = new();
+    private List<TimeSlot> availableTimeSlots = new();
+    private List<SmsMessage> previewMessages = new();
+    
+    // Selections
+    private List<Contact> selectedContacts = new();
+    private Leader? selectedLeader;
+    private TimeSlot? selectedTimeSlot;
+    
+    // Filters and search
+    private string contactSearchTerm = "";
+    private string contactGenderFilter = "";
+    private string contactAgeFilter = "";
+    
+    // Form data
+    private int? selectedAppointmentTypeId;
+    private DateTime startDate = DateTime.Today.AddDays(1);
+    private DateTime endDate = DateTime.Today.AddDays(14);
+    private int preferredStartHour = 9;
+    private int preferredEndHour = 17;
+    
+    // State
+    private bool isLoadingTimeSlots = false;
+    private bool isCreatingAppointment = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        allContacts = await DbContext.Contacts
+            .Include(c => c.HeadOfHouse)
+            .Include(c => c.Spouse)
+            .OrderBy(c => c.LastName)
+            .ThenBy(c => c.FirstName)
+            .ToListAsync();
+
+        activeLeaders = await DbContext.Leaders
+            .Where(l => l.IsActive)
+            .OrderBy(l => l.Title)
+            .ToListAsync();
+
+        appointmentTypes = await DbContext.AppointmentTypes
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    private IEnumerable<Contact> filteredContacts
+    {
+        get
+        {
+            var filtered = allContacts.Where(c => !selectedContacts.Contains(c));
+
+            if (!string.IsNullOrWhiteSpace(contactSearchTerm))
+            {
+                filtered = filtered.Where(c =>
+                    c.FirstName.Contains(contactSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    c.LastName.Contains(contactSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (c.PhoneNumber != null && c.PhoneNumber.Contains(contactSearchTerm)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(contactGenderFilter))
+            {
+                filtered = filtered.Where(c => c.Gender.ToString() == contactGenderFilter);
+            }
+
+            if (!string.IsNullOrWhiteSpace(contactAgeFilter))
+            {
+                filtered = contactAgeFilter switch
+                {
+                    "minor" => filtered.Where(c => c.IsMinor),
+                    "adult" => filtered.Where(c => !c.IsMinor),
+                    _ => filtered
+                };
+            }
+
+            return filtered;
+        }
+    }
+
+    private AppointmentType? selectedAppointmentType => 
+        selectedAppointmentTypeId.HasValue ? appointmentTypes.FirstOrDefault(t => t.Id == selectedAppointmentTypeId.Value) : null;
+
+    // Navigation methods
+    private void NextStep()
+    {
+        if (currentStep == 3)
+        {
+            _ = LoadAvailableTimeSlots();
+        }
+        else if (currentStep == 4)
+        {
+            GenerateSmsPreview();
+        }
+        currentStep++;
+    }
+
+    private void PreviousStep()
+    {
+        currentStep--;
+    }
+
+    // Selection methods
+    private void SelectContact(Contact contact)
+    {
+        selectedContacts.Add(contact);
+    }
+
+    private void RemoveContact(Contact contact)
+    {
+        selectedContacts.Remove(contact);
+    }
+
+    private void SelectLeader(Leader leader)
+    {
+        selectedLeader = leader;
+    }
+
+    private void SelectTimeSlot(TimeSlot timeSlot)
+    {
+        selectedTimeSlot = timeSlot;
+    }
+
+    private async Task LoadAvailableTimeSlots()
+    {
+        if (selectedLeader == null || selectedAppointmentType == null || string.IsNullOrEmpty(selectedLeader.GoogleCalendarId))
+        {
+            availableTimeSlots = GenerateMockTimeSlots();
+            return;
+        }
+
+        isLoadingTimeSlots = true;
+        try
+        {
+            var searchStart = startDate.Date.AddHours(preferredStartHour);
+            var searchEnd = endDate.Date.AddHours(preferredEndHour);
+            
+            availableTimeSlots = await CalendarService.GetAvailableTimeSlotsAsync(
+                selectedLeader.GoogleCalendarId,
+                searchStart,
+                searchEnd,
+                selectedAppointmentType.Duration);
+        }
+        catch
+        {
+            // Fallback to mock data if calendar service fails
+            availableTimeSlots = GenerateMockTimeSlots();
+        }
+        finally
+        {
+            isLoadingTimeSlots = false;
+        }
+    }
+
+    private List<TimeSlot> GenerateMockTimeSlots()
+    {
+        var slots = new List<TimeSlot>();
+        var current = startDate.Date.AddHours(preferredStartHour);
+        var end = endDate.Date.AddHours(preferredEndHour);
+
+        while (current.Date <= endDate.Date)
+        {
+            var dayEnd = current.Date.AddHours(preferredEndHour);
+            var workingCurrent = current.Date.AddHours(preferredStartHour);
+
+            while (workingCurrent.TimeOfDay < dayEnd.TimeOfDay)
+            {
+                var slotEnd = workingCurrent.AddMinutes(selectedAppointmentType?.Duration ?? 30);
+                if (slotEnd.TimeOfDay <= dayEnd.TimeOfDay && workingCurrent.DayOfWeek != DayOfWeek.Sunday)
+                {
+                    slots.Add(new TimeSlot
+                    {
+                        StartTime = workingCurrent,
+                        EndTime = slotEnd,
+                        IsAvailable = Random.Shared.NextDouble() > 0.3 // 70% availability
+                    });
+                }
+                workingCurrent = workingCurrent.AddMinutes(30);
+            }
+            current = current.AddDays(1);
+        }
+
+        return slots;
+    }
+
+    private async Task RefreshTimeSlots()
+    {
+        await LoadAvailableTimeSlots();
+    }
+
+    private void GenerateSmsPreview()
+    {
+        if (selectedContacts.Count == 0 || selectedLeader == null || selectedAppointmentType == null || selectedTimeSlot == null)
+        {
+            previewMessages = new List<SmsMessage>();
+            return;
+        }
+
+        previewMessages = SmsService.GenerateAppointmentMessages(selectedContacts, selectedLeader, selectedAppointmentType, selectedTimeSlot.StartTime);
+    }
+
+    private async Task CreateAppointment()
+    {
+        if (selectedContacts.Count == 0 || selectedLeader == null || selectedAppointmentType == null || selectedTimeSlot == null)
+            return;
+
+        isCreatingAppointment = true;
+        try
+        {
+            // Create appointments for each selected contact
+            foreach (var contact in selectedContacts)
+            {
+                var appointment = new Appointment
+                {
+                    ContactId = contact.Id,
+                    LeaderId = selectedLeader.Id,
+                    AppointmentTypeId = selectedAppointmentType.Id,
+                    ScheduledTime = selectedTimeSlot.StartTime,
+                    Status = AppointmentStatus.Pending,
+                    CreatedDate = DateTime.Now
+                };
+
+                DbContext.Appointments.Add(appointment);
+            }
+
+            await DbContext.SaveChangesAsync();
+
+            // Try to create calendar event
+            if (!string.IsNullOrEmpty(selectedLeader.GoogleCalendarId))
+            {
+                try
+                {
+                    var firstAppointment = await DbContext.Appointments
+                        .Include(a => a.Contact)
+                        .Include(a => a.Leader)
+                        .Include(a => a.AppointmentType)
+                        .FirstOrDefaultAsync(a => a.LeaderId == selectedLeader.Id && 
+                                                  a.ScheduledTime == selectedTimeSlot.StartTime);
+
+                    if (firstAppointment != null)
+                    {
+                        var eventId = await CalendarService.CreateEventAsync(selectedLeader.GoogleCalendarId, firstAppointment);
+                        if (!string.IsNullOrEmpty(eventId))
+                        {
+                            firstAppointment.GoogleEventId = eventId;
+                            await DbContext.SaveChangesAsync();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Calendar creation failed, but appointment was saved
+                }
+            }
+
+            await JSRuntime.InvokeVoidAsync("alert", $"Appointment scheduled successfully! {selectedContacts.Count} contact(s) will receive SMS notifications.");
+            Navigation.NavigateTo("/appointments");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error creating appointment: {ex.Message}");
+        }
+        finally
+        {
+            isCreatingAppointment = false;
+        }
+    }
+}

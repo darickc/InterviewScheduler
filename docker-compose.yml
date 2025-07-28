@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  interviewscheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/interviewscheduler.db
+      - GoogleCalendar__ClientId=${GOOGLE_CLIENT_ID}
+      - GoogleCalendar__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - GoogleCalendar__RedirectUri=http://localhost:8080/auth/google/callback
+    volumes:
+      - interview_data:/app/data
+      - ./CalendarCredentials:/app/CalendarCredentials
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - interviewscheduler
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  interview_data:
+    driver: local

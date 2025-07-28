@@ -1,0 +1,367 @@
+@page "/contacts"
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ICsvParserService CsvParser
+@rendermode InteractiveServer
+
+<PageTitle>Contacts</PageTitle>
+
+<h1>Contact Management</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Import Contacts from CSV</h3>
+            </div>
+            <div class="card-body">
+                <InputFile OnChange="@LoadFiles" accept=".csv" />
+                @if (importMessage != null)
+                {
+                    <div class="alert @(importSuccess ? "alert-success" : "alert-danger") mt-3">
+                        @importMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Contact List</h3>
+        
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <input type="text" class="form-control" placeholder="Search by name or phone..."
+                       @bind="searchTerm" @bind:event="oninput" />
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" @bind="genderFilter">
+                    <option value="">All Genders</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" @bind="ageFilter">
+                    <option value="">All Ages</option>
+                    <option value="minor">Minors (≤17)</option>
+                    <option value="adult">Adults (18+)</option>
+                    <option value="senior">Seniors (65+)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-control" @bind="familyFilter">
+                    <option value="">All Contacts</option>
+                    <option value="head">Heads of House</option>
+                    <option value="spouse">Spouses</option>
+                    <option value="dependent">Dependents</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>Showing @filteredContacts.Count() of @contacts.Count contacts</span>
+        </div>
+
+        <div class="mb-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" @bind="groupByFamily" id="groupByFamily">
+                <label class="form-check-label" for="groupByFamily">
+                    Group by Family
+                </label>
+            </div>
+        </div>
+
+        @if (filteredContacts.Any())
+        {
+            @if (groupByFamily)
+            {
+                @foreach (var family in GetFamilyGroups())
+                {
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">@family.Key's Household</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Role</th>
+                                        <th>Phone</th>
+                                        <th>Gender</th>
+                                        <th>Age</th>
+                                        <th>Birth Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var member in family.Value.OrderBy(m => GetFamilyRoleOrder(m)))
+                                    {
+                                        <tr class="@(member.IsMinor ? "table-info" : "")">
+                                            <td>
+                                                @member.FullName
+                                                @if (member.IsMinor)
+                                                {
+                                                    <span class="badge bg-info">Minor</span>
+                                                }
+                                            </td>
+                                            <td>@GetFamilyRole(member)</td>
+                                            <td>@member.PhoneNumber</td>
+                                            <td>@member.Gender</td>
+                                            <td>@member.Age</td>
+                                            <td>@member.BirthDate.ToShortDateString()</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Gender</th>
+                            <th>Age</th>
+                            <th>Birth Date</th>
+                            <th>Head of House</th>
+                            <th>Spouse</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var contact in filteredContacts)
+                        {
+                            <tr>
+                                <td>@contact.FullName</td>
+                                <td>@contact.PhoneNumber</td>
+                                <td>@contact.Gender</td>
+                                <td>@contact.Age @(contact.IsMinor ? "(Minor)" : "")</td>
+                                <td>@contact.BirthDate.ToShortDateString()</td>
+                                <td>@contact.HeadOfHouse?.FullName</td>
+                                <td>@contact.Spouse?.FullName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+        else
+        {
+            <p>No contacts found.</p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Contact> contacts = new();
+    private string? searchTerm;
+    private string? genderFilter;
+    private string? ageFilter;
+    private string? familyFilter;
+    private string? importMessage;
+    private bool importSuccess;
+    private bool groupByFamily = false;
+
+    private IEnumerable<Contact> filteredContacts
+    {
+        get
+        {
+            var filtered = contacts.AsEnumerable();
+
+            // Text search
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filtered = filtered.Where(c =>
+                    c.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    c.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (c.PhoneNumber != null && c.PhoneNumber.Contains(searchTerm)));
+            }
+
+            // Gender filter
+            if (!string.IsNullOrWhiteSpace(genderFilter))
+            {
+                filtered = filtered.Where(c => c.Gender.ToString() == genderFilter);
+            }
+
+            // Age filter
+            if (!string.IsNullOrWhiteSpace(ageFilter))
+            {
+                filtered = ageFilter switch
+                {
+                    "minor" => filtered.Where(c => c.IsMinor),
+                    "adult" => filtered.Where(c => !c.IsMinor && c.Age < 65),
+                    "senior" => filtered.Where(c => c.Age >= 65),
+                    _ => filtered
+                };
+            }
+
+            // Family filter
+            if (!string.IsNullOrWhiteSpace(familyFilter))
+            {
+                filtered = familyFilter switch
+                {
+                    "head" => filtered.Where(c => c.HeadOfHouseId == null),
+                    "spouse" => filtered.Where(c => c.SpouseId != null),
+                    "dependent" => filtered.Where(c => c.HeadOfHouseId != null),
+                    _ => filtered
+                };
+            }
+
+            return filtered;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContacts();
+    }
+
+    private async Task LoadContacts()
+    {
+        contacts = await DbContext.Contacts
+            .Include(c => c.HeadOfHouse)
+            .Include(c => c.Spouse)
+            .OrderBy(c => c.LastName)
+            .ThenBy(c => c.FirstName)
+            .ToListAsync();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = null;
+        genderFilter = null;
+        ageFilter = null;
+        familyFilter = null;
+    }
+
+    private Dictionary<string, List<Contact>> GetFamilyGroups()
+    {
+        var families = new Dictionary<string, List<Contact>>();
+        
+        foreach (var contact in filteredContacts)
+        {
+            var familyName = GetFamilyName(contact);
+            if (!families.ContainsKey(familyName))
+            {
+                families[familyName] = new List<Contact>();
+            }
+            families[familyName].Add(contact);
+        }
+        
+        return families.OrderBy(f => f.Key).ToDictionary(f => f.Key, f => f.Value);
+    }
+
+    private string GetFamilyName(Contact contact)
+    {
+        // If this person has no head of house, they are the head of their family
+        if (contact.HeadOfHouseId == null)
+        {
+            return contact.FullName;
+        }
+        
+        // Otherwise, use the head of house's full name
+        return contact.HeadOfHouse?.FullName ?? contact.FullName;
+    }
+
+    private string GetFamilyRole(Contact contact)
+    {
+        if (contact.HeadOfHouseId == null)
+        {
+            return "Head of House";
+        }
+        else if (contact.SpouseId != null)
+        {
+            return "Spouse";
+        }
+        else if (contact.IsMinor)
+        {
+            return "Child";
+        }
+        else
+        {
+            return "Dependent";
+        }
+    }
+
+    private int GetFamilyRoleOrder(Contact contact)
+    {
+        return GetFamilyRole(contact) switch
+        {
+            "Head of House" => 1,
+            "Spouse" => 2,
+            "Child" => 3,
+            "Dependent" => 4,
+            _ => 5
+        };
+    }
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        importMessage = null;
+        
+        try
+        {
+            var file = e.File;
+            if (file.ContentType != "text/csv" && !file.Name.EndsWith(".csv"))
+            {
+                importMessage = "Please select a CSV file.";
+                importSuccess = false;
+                return;
+            }
+
+            // Read file into memory so we can use it twice
+            using var fileStream = file.OpenReadStream();
+            using var memoryStream = new MemoryStream();
+            await fileStream.CopyToAsync(memoryStream);
+            var csvBytes = memoryStream.ToArray();
+
+            // First pass: Parse contacts without relationships
+            using var parseStream = new MemoryStream(csvBytes);
+            var importedContacts = await CsvParser.ParseContactsCsvAsync(parseStream);
+
+            if (importedContacts.Any())
+            {
+                // Clear all existing contacts first
+                var existingContacts = await DbContext.Contacts.ToListAsync();
+                DbContext.Contacts.RemoveRange(existingContacts);
+                await DbContext.SaveChangesAsync();
+
+                // Add imported contacts to database
+                await DbContext.Contacts.AddRangeAsync(importedContacts);
+                await DbContext.SaveChangesAsync();
+
+                // Second pass: Link relationships using the saved contacts with IDs
+                using var linkStream = new MemoryStream(csvBytes);
+                await CsvParser.LinkRelationshipsAsync(linkStream, importedContacts);
+                await DbContext.SaveChangesAsync();
+                
+                await LoadContacts();
+
+                importMessage = $"Successfully imported {importedContacts.Count} contacts.";
+                importSuccess = true;
+            }
+            else
+            {
+                importMessage = "No contacts found in the CSV file.";
+                importSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            importMessage = $"Error importing contacts: {ex.Message}";
+            importSuccess = false;
+        }
+    }
+}

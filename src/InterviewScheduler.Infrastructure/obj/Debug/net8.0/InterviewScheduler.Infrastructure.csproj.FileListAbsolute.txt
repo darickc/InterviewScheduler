@@ -1,0 +1,15 @@
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.csproj.AssemblyReference.cache
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.AssemblyInfoInputs.cache
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.AssemblyInfo.cs
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.csproj.CoreCompileInputs.cache
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/bin/Debug/net8.0/InterviewScheduler.Infrastructure.deps.json
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/bin/Debug/net8.0/InterviewScheduler.Infrastructure.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/bin/Debug/net8.0/InterviewScheduler.Infrastructure.pdb
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/bin/Debug/net8.0/InterviewScheduler.Core.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/bin/Debug/net8.0/InterviewScheduler.Core.pdb
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/Intervie.AEC9EE27.Up2Date
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/refint/InterviewScheduler.Infrastructure.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.pdb
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/ref/InterviewScheduler.Infrastructure.dll

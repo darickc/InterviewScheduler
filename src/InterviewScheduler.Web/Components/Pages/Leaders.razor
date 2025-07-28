@@ -1,0 +1,238 @@
+@page "/leaders"
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ICalendarService CalendarService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Leaders</PageTitle>
+
+<h1>Leader Management</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <button class="btn btn-primary mb-3" @onclick="ShowAddLeader">Add New Leader</button>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Google Calendar Integration</h5>
+            </div>
+            <div class="card-body">
+                @if (isCalendarAuthenticated)
+                {
+                    <div class="text-success">
+                        <i class="bi bi-check-circle"></i> Connected to Google Calendar
+                    </div>
+                    <small class="text-muted">Calendar integration is active</small>
+                }
+                else
+                {
+                    <div class="text-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Not connected to Google Calendar
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm mt-2" @onclick="AuthorizeGoogleCalendar">
+                        Connect Google Calendar
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showForm)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>@(editingLeader == null ? "Add New Leader" : "Edit Leader")</h3>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@currentLeader" OnValidSubmit="@SaveLeader">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <InputText class="form-control" @bind-Value="currentLeader.Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <InputSelect class="form-control" @bind-Value="currentLeader.Title">
+                        <option value="">Select a title</option>
+                        <option value="Bishop">Bishop</option>
+                        <option value="1st Counselor">1st Counselor</option>
+                        <option value="2nd Counselor">2nd Counselor</option>
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Google Calendar ID</label>
+                    <InputText class="form-control" @bind-Value="currentLeader.GoogleCalendarId" />
+                    <small class="form-text text-muted">The Google Calendar ID for this leader's calendar</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        <InputCheckbox @bind-Value="currentLeader.IsActive" />
+                        Active
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-success">Save</button>
+                <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Current Leaders</h3>
+        
+        @if (leaders.Any())
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Title</th>
+                        <th>Google Calendar ID</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var leader in leaders)
+                    {
+                        <tr>
+                            <td>@leader.Name</td>
+                            <td>@leader.Title</td>
+                            <td>@leader.GoogleCalendarId</td>
+                            <td>
+                                @if (leader.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" @onclick="() => EditLeader(leader)">Edit</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteLeader(leader)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>No leaders configured yet.</p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Leader> leaders = new();
+    private Leader currentLeader = new();
+    private Leader? editingLeader;
+    private bool showForm = false;
+    private bool isCalendarAuthenticated = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLeaders();
+        await CheckCalendarAuthentication();
+    }
+
+    private async Task LoadLeaders()
+    {
+        leaders = await DbContext.Leaders
+            .OrderBy(l => l.Title)
+            .ToListAsync();
+    }
+
+    private void ShowAddLeader()
+    {
+        currentLeader = new Leader { IsActive = true };
+        editingLeader = null;
+        showForm = true;
+    }
+
+    private void EditLeader(Leader leader)
+    {
+        currentLeader = new Leader
+        {
+            Id = leader.Id,
+            Name = leader.Name,
+            Title = leader.Title,
+            GoogleCalendarId = leader.GoogleCalendarId,
+            IsActive = leader.IsActive
+        };
+        editingLeader = leader;
+        showForm = true;
+    }
+
+    private async Task SaveLeader()
+    {
+        if (editingLeader == null)
+        {
+            DbContext.Leaders.Add(currentLeader);
+        }
+        else
+        {
+            DbContext.Entry(editingLeader).CurrentValues.SetValues(currentLeader);
+        }
+
+        await DbContext.SaveChangesAsync();
+        await LoadLeaders();
+        CancelEdit();
+    }
+
+    private async Task DeleteLeader(Leader leader)
+    {
+        DbContext.Leaders.Remove(leader);
+        await DbContext.SaveChangesAsync();
+        await LoadLeaders();
+    }
+
+    private void CancelEdit()
+    {
+        showForm = false;
+        currentLeader = new();
+        editingLeader = null;
+    }
+
+    private async Task CheckCalendarAuthentication()
+    {
+        try
+        {
+            isCalendarAuthenticated = await CalendarService.IsAuthenticatedAsync();
+        }
+        catch
+        {
+            isCalendarAuthenticated = false;
+        }
+    }
+
+    private async Task AuthorizeGoogleCalendar()
+    {
+        try
+        {
+            var redirectUri = $"{Navigation.BaseUri}auth/google/callback";
+            var authUrl = await CalendarService.GetAuthorizationUrlAsync(redirectUri);
+            Navigation.NavigateTo(authUrl, true);
+        }
+        catch (Exception ex)
+        {
+            // Handle error - in a real app, would use proper error handling
+            Console.WriteLine($"Error getting authorization URL: {ex.Message}");
+        }
+    }
+}

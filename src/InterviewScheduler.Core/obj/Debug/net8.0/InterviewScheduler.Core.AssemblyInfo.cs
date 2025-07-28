@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InterviewScheduler.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c640463ca8e60c26cc9330cc41d80972fd41fd1c")]
 [assembly: System.Reflection.AssemblyProductAttribute("InterviewScheduler.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InterviewScheduler.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -12,6 +12,8 @@ public interface ICalendarService
     Task<string> GetAuthorizationUrlAsync(string redirectUri);
     Task<bool> ProcessAuthorizationCodeAsync(string code, string redirectUri);
     Task<bool> IsAuthenticatedAsync();
+    Task ClearStoredCredentialsAsync();
+    Task<List<CalendarInfo>> GetCalendarsAsync();
 }
 
 public class TimeSlot
@@ -19,4 +21,14 @@ public class TimeSlot
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public bool IsAvailable { get; set; }
+    public int LeaderId { get; set; }
+    public string LeaderName { get; set; } = string.Empty;
+}
+
+public class CalendarInfo
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
 }

@@ -13,3 +13,4 @@
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/refint/InterviewScheduler.Infrastructure.dll
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.pdb
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/ref/InterviewScheduler.Infrastructure.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/obj/Debug/net8.0/InterviewScheduler.Infrastructure.sourcelink.json

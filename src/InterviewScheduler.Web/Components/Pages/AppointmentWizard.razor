@@ -9,6 +9,7 @@
 @inject ISmsService SmsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ILogger<AppointmentWizard> Logger
 @rendermode InteractiveServer
 
 <PageTitle>Schedule Appointment</PageTitle>
@@ -22,7 +23,7 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <div class="progress mb-3">
-                        <div class="progress-bar" role="progressbar" style="width: @(((currentStep - 1) * 100 / 4))%" 
+                        <div class="progress-bar" role="progressbar" style="width: @(((currentStep - 1) * 100 / 3))%" 
                              aria-valuenow="@currentStep" aria-valuemin="0" aria-valuemax="4"></div>
                     </div>
                     <div class="row text-center">
@@ -32,7 +33,7 @@
                         </div>
                         <div class="col step @(currentStep >= 2 ? "active" : "")">
                             <span class="step-number">2</span>
-                            <br><small>Choose Leader</small>
+                            <br><small>Choose Leaders</small>
                         </div>
                         <div class="col step @(currentStep >= 3 ? "active" : "")">
                             <span class="step-number">3</span>
@@ -40,10 +41,6 @@
                         </div>
                         <div class="col step @(currentStep >= 4 ? "active" : "")">
                             <span class="step-number">4</span>
-                            <br><small>Schedule Time</small>
-                        </div>
-                        <div class="col step @(currentStep >= 5 ? "active" : "")">
-                            <span class="step-number">5</span>
                             <br><small>Review & Send</small>
                         </div>
                     </div>
@@ -134,7 +131,7 @@
 
                         <div class="mt-3">
                             <button class="btn btn-primary" @onclick="NextStep" disabled="@(!selectedContacts.Any())">
-                                Next: Choose Leader
+                                Next: Choose Leaders
                             </button>
                         </div>
                     </div>
@@ -142,46 +139,76 @@
             }
             else if (currentStep == 2)
             {
-                <!-- Step 2: Choose Leader -->
+                <!-- Step 2: Choose Leaders -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>Step 2: Choose Leader</h3>
+                        <h3>Step 2: Choose Leaders</h3>
+                        <p class="mb-0">Select one or more leaders for scheduling appointments. The system will automatically distribute contacts across available time slots.</p>
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            @foreach (var leader in activeLeaders)
-                            {
-                                <div class="col-md-4 mb-3">
-                                    <div class="card @(selectedLeader?.Id == leader.Id ? "border-primary" : "")">
-                                        <div class="card-body text-center">
-                                            <h5>@leader.Name</h5>
-                                            <p class="text-muted">@leader.Title</p>
-                                            @if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
-                                            {
-                                                <small class="text-success">
-                                                    <i class="bi bi-calendar-check"></i> Calendar Available
-                                                </small>
-                                            }
-                                            else
-                                            {
-                                                <small class="text-warning">
-                                                    <i class="bi bi-calendar-x"></i> No Calendar
-                                                </small>
-                                            }
-                                            <br>
-                                            <button class="btn @(selectedLeader?.Id == leader.Id ? "btn-primary" : "btn-outline-primary") mt-2"
-                                                    @onclick="() => SelectLeader(leader)">
-                                                @(selectedLeader?.Id == leader.Id ? "Selected" : "Select")
-                                            </button>
+                            <div class="col-md-8">
+                                <h5>Available Leaders</h5>
+                                <div class="row">
+                                    @foreach (var leader in activeLeaders)
+                                    {
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card @(selectedLeaders.Contains(leader) ? "border-primary" : "")">
+                                                <div class="card-body">
+                                                    <h6>@leader.Name</h6>
+                                                    <p class="text-muted small mb-2">@leader.Title</p>
+                                                    @if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
+                                                    {
+                                                        <small class="text-success">
+                                                            <i class="bi bi-calendar-check"></i> Calendar Available
+                                                        </small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-warning">
+                                                            <i class="bi bi-calendar-x"></i> No Calendar
+                                                        </small>
+                                                    }
+                                                    <br>
+                                                    <button class="btn @(selectedLeaders.Contains(leader) ? "btn-primary" : "btn-outline-primary") btn-sm mt-2"
+                                                            @onclick="() => ToggleLeader(leader)">
+                                                        @(selectedLeaders.Contains(leader) ? "Remove" : "Select")
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    }
                                 </div>
-                            }
+                            </div>
+                            <div class="col-md-4">
+                                <h5>Selected Leaders (@selectedLeaders.Count)</h5>
+                                @if (selectedLeaders.Any())
+                                {
+                                    <div class="list-group">
+                                        @foreach (var leader in selectedLeaders)
+                                        {
+                                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>@leader.Name</strong>
+                                                    <br><small>@leader.Title</small>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ToggleLeader(leader)">
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted">No leaders selected</p>
+                                }
+                            </div>
                         </div>
 
                         <div class="mt-3">
                             <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedLeader == null)">
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(!selectedLeaders.Any())">
                                 Next: Appointment Details
                             </button>
                         </div>
@@ -220,39 +247,21 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Preferred Date Range</label>
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <input type="date" class="form-control" @bind="startDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
-                                            <small class="form-text text-muted">Start Date</small>
-                                        </div>
-                                        <div class="col-6">
-                                            <input type="date" class="form-control" @bind="endDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
-                                            <small class="form-text text-muted">End Date</small>
-                                        </div>
-                                    </div>
+                                    <label class="form-label">Appointment Date</label>
+                                    <input type="date" class="form-control" @bind="appointmentDate" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                                    <small class="form-text text-muted">Select the date for the appointment</small>
                                 </div>
 
                                 <div class="mb-3">
-                                    <label class="form-label">Preferred Time</label>
+                                    <label class="form-label">Time Range</label>
                                     <div class="row">
                                         <div class="col-6">
-                                            <select class="form-control" @bind="preferredStartHour">
-                                                @for (int hour = 8; hour <= 20; hour++)
-                                                {
-                                                    <option value="@hour">@hour:00</option>
-                                                }
-                                            </select>
-                                            <small class="form-text text-muted">Earliest</small>
+                                            <input type="time" class="form-control" @bind="startTime" />
+                                            <small class="form-text text-muted">Start Time</small>
                                         </div>
                                         <div class="col-6">
-                                            <select class="form-control" @bind="preferredEndHour">
-                                                @for (int hour = 9; hour <= 21; hour++)
-                                                {
-                                                    <option value="@hour">@hour:00</option>
-                                                }
-                                            </select>
-                                            <small class="form-text text-muted">Latest</small>
+                                            <input type="time" class="form-control" @bind="endTime" />
+                                            <small class="form-text text-muted">End Time</small>
                                         </div>
                                     </div>
                                 </div>
@@ -261,8 +270,8 @@
 
                         <div class="mt-3">
                             <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedAppointmentType == null || startDate == default || endDate == default)">
-                                Next: Find Available Times
+                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedAppointmentType == null || appointmentDate == default || startTime == default || endTime == default)">
+                                Next: Review & Send
                             </button>
                         </div>
                     </div>
@@ -270,70 +279,10 @@
             }
             else if (currentStep == 4)
             {
-                <!-- Step 4: Schedule Time -->
+                <!-- Step 4: Review & Send -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>Step 4: Choose Available Time</h3>
-                    </div>
-                    <div class="card-body">
-                        @if (isLoadingTimeSlots)
-                        {
-                            <div class="text-center">
-                                <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <p>Finding available time slots...</p>
-                            </div>
-                        }
-                        else if (availableTimeSlots.Any())
-                        {
-                            <div class="row">
-                                @foreach (var dayGroup in availableTimeSlots.Where(t => t.IsAvailable).GroupBy(t => t.StartTime.Date))
-                                {
-                                    <div class="col-md-4 mb-3">
-                                        <h6>@dayGroup.Key.ToString("dddd, MMMM dd")</h6>
-                                        <div class="list-group">
-                                            @foreach (var slot in dayGroup.OrderBy(s => s.StartTime))
-                                            {
-                                                <button class="list-group-item list-group-item-action @(selectedTimeSlot?.StartTime == slot.StartTime ? "active" : "")"
-                                                        @onclick="() => SelectTimeSlot(slot)">
-                                                    @slot.StartTime.ToString("h:mm tt") - @slot.EndTime.ToString("h:mm tt")
-                                                </button>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="alert alert-warning">
-                                <h5>No Available Time Slots</h5>
-                                <p>No available time slots were found for the selected date range and leader. Please try:</p>
-                                <ul>
-                                    <li>Expanding your date range</li>
-                                    <li>Choosing different preferred times</li>
-                                    <li>Selecting a different leader</li>
-                                </ul>
-                            </div>
-                        }
-
-                        <div class="mt-3">
-                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-warning me-2" @onclick="RefreshTimeSlots">Refresh Time Slots</button>
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedTimeSlot == null)">
-                                Next: Review & Send
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (currentStep == 5)
-            {
-                <!-- Step 5: Review & Send -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Step 5: Review & Send Notifications</h3>
+                        <h3>Step 4: Review & Send Notifications</h3>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -341,16 +290,16 @@
                                 <h5>Appointment Summary</h5>
                                 <table class="table">
                                     <tr>
-                                        <td><strong>Leader:</strong></td>
-                                        <td>@selectedLeader?.Name (@selectedLeader?.Title)</td>
+                                        <td><strong>Leaders:</strong></td>
+                                        <td>@string.Join(", ", selectedLeaders.Select(l => $"{l.Name} ({l.Title})"))</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Type:</strong></td>
                                         <td>@selectedAppointmentType?.Name</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Date & Time:</strong></td>
-                                        <td>@selectedTimeSlot?.StartTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</td>
+                                        <td><strong>Starting Time:</strong></td>
+                                        <td>@appointmentDate.ToString("dddd, MMMM dd, yyyy") at @startTime.ToString("h:mm tt")</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Duration:</strong></td>
@@ -451,13 +400,11 @@
     private List<Contact> allContacts = new();
     private List<Leader> activeLeaders = new();
     private List<AppointmentType> appointmentTypes = new();
-    private List<TimeSlot> availableTimeSlots = new();
     private List<SmsMessage> previewMessages = new();
     
     // Selections
     private List<Contact> selectedContacts = new();
-    private Leader? selectedLeader;
-    private TimeSlot? selectedTimeSlot;
+    private List<Leader> selectedLeaders = new();
     
     // Filters and search
     private string contactSearchTerm = "";
@@ -466,13 +413,11 @@
     
     // Form data
     private int? selectedAppointmentTypeId;
-    private DateTime startDate = DateTime.Today.AddDays(1);
-    private DateTime endDate = DateTime.Today.AddDays(14);
-    private int preferredStartHour = 9;
-    private int preferredEndHour = 17;
+    private DateTime appointmentDate = GetNextSunday();
+    private TimeOnly startTime = new TimeOnly(9, 0); // 9:00 AM
+    private TimeOnly endTime = new TimeOnly(17, 0); // 5:00 PM
     
     // State
-    private bool isLoadingTimeSlots = false;
     private bool isCreatingAppointment = false;
 
     protected override async Task OnInitializedAsync()
@@ -535,14 +480,17 @@
     private AppointmentType? selectedAppointmentType => 
         selectedAppointmentTypeId.HasValue ? appointmentTypes.FirstOrDefault(t => t.Id == selectedAppointmentTypeId.Value) : null;
 
+    private static DateTime GetNextSunday()
+    {
+        var today = DateTime.Today;
+        var daysUntilSunday = ((int)DayOfWeek.Sunday - (int)today.DayOfWeek + 7) % 7;
+        return daysUntilSunday == 0 ? today.AddDays(7) : today.AddDays(daysUntilSunday); // If today is Sunday, get next Sunday
+    }
+
     // Navigation methods
     private void NextStep()
     {
         if (currentStep == 3)
-        {
-            _ = LoadAvailableTimeSlots();
-        }
-        else if (currentStep == 4)
         {
             GenerateSmsPreview();
         }
@@ -565,158 +513,323 @@
         selectedContacts.Remove(contact);
     }
 
-    private void SelectLeader(Leader leader)
+    private void ToggleLeader(Leader leader)
     {
-        selectedLeader = leader;
-    }
-
-    private void SelectTimeSlot(TimeSlot timeSlot)
-    {
-        selectedTimeSlot = timeSlot;
-    }
-
-    private async Task LoadAvailableTimeSlots()
-    {
-        if (selectedLeader == null || selectedAppointmentType == null || string.IsNullOrEmpty(selectedLeader.GoogleCalendarId))
+        if (selectedLeaders.Contains(leader))
         {
-            availableTimeSlots = GenerateMockTimeSlots();
-            return;
+            selectedLeaders.Remove(leader);
         }
-
-        isLoadingTimeSlots = true;
-        try
+        else
         {
-            var searchStart = startDate.Date.AddHours(preferredStartHour);
-            var searchEnd = endDate.Date.AddHours(preferredEndHour);
-            
-            availableTimeSlots = await CalendarService.GetAvailableTimeSlotsAsync(
-                selectedLeader.GoogleCalendarId,
-                searchStart,
-                searchEnd,
-                selectedAppointmentType.Duration);
-        }
-        catch
-        {
-            // Fallback to mock data if calendar service fails
-            availableTimeSlots = GenerateMockTimeSlots();
-        }
-        finally
-        {
-            isLoadingTimeSlots = false;
+            selectedLeaders.Add(leader);
         }
     }
 
-    private List<TimeSlot> GenerateMockTimeSlots()
-    {
-        var slots = new List<TimeSlot>();
-        var current = startDate.Date.AddHours(preferredStartHour);
-        var end = endDate.Date.AddHours(preferredEndHour);
-
-        while (current.Date <= endDate.Date)
-        {
-            var dayEnd = current.Date.AddHours(preferredEndHour);
-            var workingCurrent = current.Date.AddHours(preferredStartHour);
-
-            while (workingCurrent.TimeOfDay < dayEnd.TimeOfDay)
-            {
-                var slotEnd = workingCurrent.AddMinutes(selectedAppointmentType?.Duration ?? 30);
-                if (slotEnd.TimeOfDay <= dayEnd.TimeOfDay && workingCurrent.DayOfWeek != DayOfWeek.Sunday)
-                {
-                    slots.Add(new TimeSlot
-                    {
-                        StartTime = workingCurrent,
-                        EndTime = slotEnd,
-                        IsAvailable = Random.Shared.NextDouble() > 0.3 // 70% availability
-                    });
-                }
-                workingCurrent = workingCurrent.AddMinutes(30);
-            }
-            current = current.AddDays(1);
-        }
-
-        return slots;
-    }
-
-    private async Task RefreshTimeSlots()
-    {
-        await LoadAvailableTimeSlots();
-    }
 
     private void GenerateSmsPreview()
     {
-        if (selectedContacts.Count == 0 || selectedLeader == null || selectedAppointmentType == null || selectedTimeSlot == null)
+        if (selectedContacts.Count == 0 || !selectedLeaders.Any() || selectedAppointmentType == null)
         {
             previewMessages = new List<SmsMessage>();
             return;
         }
 
-        previewMessages = SmsService.GenerateAppointmentMessages(selectedContacts, selectedLeader, selectedAppointmentType, selectedTimeSlot.StartTime);
+        // Generate preview messages for automatic scheduling
+        previewMessages = GenerateAutoSchedulePreview();
+    }
+
+    private List<SmsMessage> GenerateAutoSchedulePreview()
+    {
+        var messages = new List<SmsMessage>();
+        var scheduledAppointments = GenerateSchedulePlan();
+        
+        foreach (var scheduled in scheduledAppointments)
+        {
+            var contact = selectedContacts.First(c => c.Id == scheduled.ContactId);
+            var leader = selectedLeaders.First(l => l.Id == scheduled.LeaderId);
+            
+            var contactMessages = SmsService.GenerateAppointmentMessages(
+                new List<Contact> { contact }, 
+                leader, 
+                selectedAppointmentType!, 
+                scheduled.ScheduledTime);
+            
+            messages.AddRange(contactMessages);
+        }
+        
+        return messages;
+    }
+
+    private List<ScheduledAppointment> GenerateSchedulePlan()
+    {
+        var plan = new List<ScheduledAppointment>();
+        var currentTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+        var appointmentDuration = selectedAppointmentType!.Duration;
+        var searchEnd = appointmentDate.Date.Add(endTime.ToTimeSpan());
+        
+        var leadersWithCalendars = selectedLeaders.Where(l => !string.IsNullOrEmpty(l.GoogleCalendarId)).ToList();
+        var scheduledTimes = new HashSet<(int leaderId, DateTime time)>(); // Track scheduled appointments per leader
+        
+        foreach (var contact in selectedContacts)
+        {
+            var assigned = false;
+            var timeToTry = currentTime;
+            
+            // Try to find an available slot starting from current time
+            while (!assigned && timeToTry.AddMinutes(appointmentDuration) <= searchEnd)
+            {
+                // Check if any leader is available at this time
+                foreach (var leader in leadersWithCalendars)
+                {
+                    var slotKey = (leader.Id, timeToTry);
+                    
+                    // Check if this leader already has an appointment at this time
+                    if (!scheduledTimes.Contains(slotKey))
+                    {
+                        // For preview purposes, assume available (real check happens during creation)
+                        plan.Add(new ScheduledAppointment
+                        {
+                            ContactId = contact.Id,
+                            LeaderId = leader.Id,
+                            ScheduledTime = timeToTry
+                        });
+                        
+                        scheduledTimes.Add(slotKey);
+                        assigned = true;
+                        break; // Found a leader for this contact, move to next contact
+                    }
+                }
+                
+                if (!assigned)
+                {
+                    // No leader available at this time, try next time slot
+                    timeToTry = timeToTry.AddMinutes(appointmentDuration);
+                }
+            }
+            
+            if (!assigned)
+            {
+                // Could not schedule this contact - no more available slots
+                break;
+            }
+            
+            // For the next contact, try the same time first (in case multiple leaders are available)
+            // If not available, the algorithm will naturally move to the next time slot
+        }
+        
+        return plan;
+    }
+
+    private class ScheduledAppointment
+    {
+        public int ContactId { get; set; }
+        public int LeaderId { get; set; }
+        public DateTime ScheduledTime { get; set; }
     }
 
     private async Task CreateAppointment()
     {
-        if (selectedContacts.Count == 0 || selectedLeader == null || selectedAppointmentType == null || selectedTimeSlot == null)
+        if (selectedContacts.Count == 0 || !selectedLeaders.Any() || selectedAppointmentType == null)
             return;
 
         isCreatingAppointment = true;
         try
         {
-            // Create appointments for each selected contact
-            foreach (var contact in selectedContacts)
+            // Generate the scheduling plan with real availability checking
+            var schedulePlan = await GenerateRealSchedulePlan();
+            var appointmentsCreated = 0;
+            var calendarEventsCreated = 0;
+            var unscheduledContacts = new List<string>();
+
+            // Create appointments based on the schedule plan
+            foreach (var scheduled in schedulePlan)
             {
                 var appointment = new Appointment
                 {
-                    ContactId = contact.Id,
-                    LeaderId = selectedLeader.Id,
+                    ContactId = scheduled.ContactId,
+                    LeaderId = scheduled.LeaderId,
                     AppointmentTypeId = selectedAppointmentType.Id,
-                    ScheduledTime = selectedTimeSlot.StartTime,
+                    ScheduledTime = scheduled.ScheduledTime,
                     Status = AppointmentStatus.Pending,
                     CreatedDate = DateTime.Now
                 };
 
                 DbContext.Appointments.Add(appointment);
+                appointmentsCreated++;
+            }
+
+            // Check for unscheduled contacts
+            var scheduledContactIds = schedulePlan.Select(s => s.ContactId).ToHashSet();
+            foreach (var contact in selectedContacts)
+            {
+                if (!scheduledContactIds.Contains(contact.Id))
+                {
+                    unscheduledContacts.Add($"{contact.Salutation} {contact.FullName}");
+                }
             }
 
             await DbContext.SaveChangesAsync();
 
-            // Try to create calendar event
-            if (!string.IsNullOrEmpty(selectedLeader.GoogleCalendarId))
+            // Create calendar events for each scheduled appointment
+            foreach (var scheduled in schedulePlan)
             {
-                try
+                var leader = selectedLeaders.First(l => l.Id == scheduled.LeaderId);
+                
+                if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
                 {
-                    var firstAppointment = await DbContext.Appointments
-                        .Include(a => a.Contact)
-                        .Include(a => a.Leader)
-                        .Include(a => a.AppointmentType)
-                        .FirstOrDefaultAsync(a => a.LeaderId == selectedLeader.Id && 
-                                                  a.ScheduledTime == selectedTimeSlot.StartTime);
-
-                    if (firstAppointment != null)
+                    try
                     {
-                        var eventId = await CalendarService.CreateEventAsync(selectedLeader.GoogleCalendarId, firstAppointment);
-                        if (!string.IsNullOrEmpty(eventId))
+                        var appointment = await DbContext.Appointments
+                            .Include(a => a.Contact)
+                            .Include(a => a.Leader)
+                            .Include(a => a.AppointmentType)
+                            .FirstOrDefaultAsync(a => a.ContactId == scheduled.ContactId && 
+                                                      a.LeaderId == scheduled.LeaderId &&
+                                                      a.ScheduledTime == scheduled.ScheduledTime);
+
+                        if (appointment != null)
                         {
-                            firstAppointment.GoogleEventId = eventId;
-                            await DbContext.SaveChangesAsync();
+                            var eventId = await CalendarService.CreateEventAsync(leader.GoogleCalendarId, appointment);
+                            if (!string.IsNullOrEmpty(eventId))
+                            {
+                                appointment.GoogleEventId = eventId;
+                                calendarEventsCreated++;
+                            }
                         }
                     }
-                }
-                catch
-                {
-                    // Calendar creation failed, but appointment was saved
+                    catch (Exception ex)
+                    {
+                        // Log calendar creation failure but continue
+                        Logger.LogError(ex, $"Failed to create calendar event for {leader.Name}");
+                    }
                 }
             }
 
-            await JSRuntime.InvokeVoidAsync("alert", $"Appointment scheduled successfully! {selectedContacts.Count} contact(s) will receive SMS notifications.");
+            await DbContext.SaveChangesAsync();
+
+            // Generate success message
+            var message = $"Automatic scheduling completed!\n\n";
+            message += $"✅ {appointmentsCreated} appointments created\n";
+            message += $"📅 {calendarEventsCreated} calendar events created\n";
+            
+            if (unscheduledContacts.Any())
+            {
+                message += $"\n⚠️ Could not schedule {unscheduledContacts.Count} contact(s):\n";
+                message += string.Join("\n", unscheduledContacts);
+                message += "\n\nPlease try:\n- Selecting a different time range\n- Adding more leaders\n- Choosing a different date";
+            }
+            else
+            {
+                message += "\n🎉 All contacts successfully scheduled!";
+            }
+
+            await JSRuntime.InvokeVoidAsync("alert", message);
             Navigation.NavigateTo("/appointments");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error creating appointment: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Error creating appointments: {ex.Message}");
         }
         finally
         {
             isCreatingAppointment = false;
+        }
+    }
+
+    private async Task<List<ScheduledAppointment>> GenerateRealSchedulePlan()
+    {
+        var plan = new List<ScheduledAppointment>();
+        var currentTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+        var appointmentDuration = selectedAppointmentType!.Duration;
+        var searchEnd = appointmentDate.Date.Add(endTime.ToTimeSpan());
+        
+        var leadersWithCalendars = selectedLeaders.Where(l => !string.IsNullOrEmpty(l.GoogleCalendarId)).ToList();
+        var scheduledTimes = new HashSet<(int leaderId, DateTime time)>(); // Track scheduled appointments per leader
+        
+        foreach (var contact in selectedContacts)
+        {
+            var assigned = false;
+            var timeToTry = currentTime;
+            
+            // Try to find an available slot starting from current time
+            while (!assigned && timeToTry.AddMinutes(appointmentDuration) <= searchEnd)
+            {
+                // Check if any leader is available at this time
+                foreach (var leader in leadersWithCalendars)
+                {
+                    var slotKey = (leader.Id, timeToTry);
+                    
+                    // Check if this leader already has an appointment at this time
+                    if (!scheduledTimes.Contains(slotKey))
+                    {
+                        // Check if leader is actually available at this time
+                        var isAvailable = await IsLeaderAvailableAtTime(leader, timeToTry, appointmentDuration);
+                        
+                        if (isAvailable)
+                        {
+                            plan.Add(new ScheduledAppointment
+                            {
+                                ContactId = contact.Id,
+                                LeaderId = leader.Id,
+                                ScheduledTime = timeToTry
+                            });
+                            
+                            scheduledTimes.Add(slotKey);
+                            assigned = true;
+                            break; // Found a leader for this contact, move to next contact
+                        }
+                    }
+                }
+                
+                if (!assigned)
+                {
+                    // No leader available at this time, try next time slot
+                    timeToTry = timeToTry.AddMinutes(appointmentDuration);
+                }
+            }
+            
+            if (!assigned)
+            {
+                // Could not schedule this contact - no more available slots
+                break;
+            }
+            
+            // For the next contact, try the same time first (in case multiple leaders are available)
+            // If not available, the algorithm will naturally move to the next time slot
+        }
+        
+        return plan;
+    }
+
+    private async Task<bool> IsLeaderAvailableAtTime(Leader leader, DateTime startTime, int durationMinutes)
+    {
+        try
+        {
+            var endTime = startTime.AddMinutes(durationMinutes);
+            
+            // Check existing appointments in database
+            var hasExistingAppt = await DbContext.Appointments
+                .AnyAsync(a => a.LeaderId == leader.Id && 
+                             a.ScheduledTime < endTime && 
+                             a.ScheduledTime.AddMinutes(selectedAppointmentType!.Duration) > startTime);
+            
+            if (hasExistingAppt)
+                return false;
+                
+            // Check Google Calendar if available
+            if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
+            {
+                return await CalendarService.IsTimeSlotAvailableAsync(
+                    leader.GoogleCalendarId, 
+                    startTime, 
+                    endTime);
+            }
+            
+            return true; // If no calendar, assume available
+        }
+        catch
+        {
+            return false; // If error checking, assume not available for safety
         }
     }
 }

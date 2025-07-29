@@ -215,3 +215,5 @@
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/bin/Debug/net9.0/Newtonsoft.Json.dll
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/bin/Debug/net9.0/System.Management.dll
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/bin/Debug/net9.0/runtimes/win/lib/net7.0/System.Management.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/obj/Debug/net9.0/InterviewScheduler.Web.sourcelink.json
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/bin/Debug/net9.0/Microsoft.AspNetCore.Authentication.Google.dll

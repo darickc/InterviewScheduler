@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "0K/rHGi/JHY=",
+  "dgSpecHash": "gGTTKAuMpTc=",
   "success": true,
   "projectFilePath": "/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Infrastructure/InterviewScheduler.Infrastructure.csproj",
   "expectedPackageFiles": [
@@ -9,6 +9,9 @@
     "/Users/darickc/.nuget/packages/google.apis.auth/1.68.0/google.apis.auth.1.68.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/google.apis.calendar.v3/1.68.0.3557/google.apis.calendar.v3.1.68.0.3557.nupkg.sha512",
     "/Users/darickc/.nuget/packages/google.apis.core/1.68.0/google.apis.core.1.68.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.authentication.abstractions/2.2.0/microsoft.aspnetcore.authentication.abstractions.2.2.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.http.abstractions/2.2.0/microsoft.aspnetcore.http.abstractions.2.2.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.http.features/2.2.0/microsoft.aspnetcore.http.features.2.2.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.data.sqlite.core/9.0.7/microsoft.data.sqlite.core.9.0.7.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.entityframeworkcore/9.0.7/microsoft.entityframeworkcore.9.0.7.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.entityframeworkcore.abstractions/9.0.7/microsoft.entityframeworkcore.abstractions.9.0.7.nupkg.sha512",

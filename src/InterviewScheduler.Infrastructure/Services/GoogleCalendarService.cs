@@ -3,100 +3,86 @@ using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Calendar.v3.Data;
+using Google.Apis.Http;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using InterviewScheduler.Core.Entities;
 using InterviewScheduler.Core.Interfaces;
+using static InterviewScheduler.Core.Interfaces.ICalendarService;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
+using System.Security.Claims;
 
 namespace InterviewScheduler.Infrastructure.Services;
+
+// Helper class to use access token with Google APIs
+public class AccessTokenCredential : IConfigurableHttpClientInitializer
+{
+    private readonly string _accessToken;
+
+    public AccessTokenCredential(string accessToken)
+    {
+        _accessToken = accessToken;
+    }
+
+    public void Initialize(ConfigurableHttpClient httpClient)
+    {
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+    }
+}
 
 public class GoogleCalendarService : ICalendarService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<GoogleCalendarService> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private CalendarService? _calendarService;
-    private UserCredential? _credential;
 
-    public GoogleCalendarService(IConfiguration configuration, ILogger<GoogleCalendarService> logger)
+    public GoogleCalendarService(
+        IConfiguration configuration, 
+        ILogger<GoogleCalendarService> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _configuration = configuration;
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
     }
 
-    public Task<bool> IsAuthenticatedAsync()
+    public async Task<bool> IsAuthenticatedAsync()
     {
         try
         {
-            return Task.FromResult(_credential != null);
-        }
-        catch
-        {
-            return Task.FromResult(false);
-        }
-    }
-
-    public async Task<string> GetAuthorizationUrlAsync(string redirectUri)
-    {
-        var clientId = _configuration["GoogleCalendar:ClientId"];
-        var clientSecret = _configuration["GoogleCalendar:ClientSecret"];
-
-        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
-        {
-            throw new InvalidOperationException("Google Calendar credentials not configured");
-        }
-
-        var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
-        {
-            ClientSecrets = new ClientSecrets
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext?.User?.Identity?.IsAuthenticated == true)
             {
-                ClientId = clientId,
-                ClientSecret = clientSecret
-            },
-            Scopes = new[] { CalendarService.Scope.Calendar },
-            DataStore = new FileDataStore("CalendarCredentials")
-        });
-
-        var authRequest = flow.CreateAuthorizationCodeRequest(redirectUri);
-        return authRequest.Build().ToString();
-    }
-
-    public async Task<bool> ProcessAuthorizationCodeAsync(string code, string redirectUri)
-    {
-        try
-        {
-            var clientId = _configuration["GoogleCalendar:ClientId"];
-            var clientSecret = _configuration["GoogleCalendar:ClientSecret"];
-
-            var flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
-            {
-                ClientSecrets = new ClientSecrets
-                {
-                    ClientId = clientId,
-                    ClientSecret = clientSecret
-                },
-                Scopes = new[] { CalendarService.Scope.Calendar },
-                DataStore = new FileDataStore("CalendarCredentials")
-            });
-
-            var token = await flow.ExchangeCodeForTokenAsync("user", code, redirectUri, CancellationToken.None);
-            _credential = new UserCredential(flow, "user", token);
-
-            // Initialize calendar service
-            _calendarService = new CalendarService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = _credential,
-                ApplicationName = "Interview Scheduler"
-            });
-
-            return true;
+                // Check if we have the access token
+                var accessToken = await httpContext.GetTokenAsync("access_token");
+                return !string.IsNullOrEmpty(accessToken);
+            }
+            return false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process authorization code");
+            _logger.LogError(ex, "Error checking authentication status");
             return false;
         }
+    }
+
+    public Task<string> GetAuthorizationUrlAsync(string redirectUri)
+    {
+        // With ASP.NET Core authentication, we just return the challenge URL
+        return Task.FromResult("/signin-google");
+    }
+
+    public Task<bool> ProcessAuthorizationCodeAsync(string code, string redirectUri)
+    {
+        // This method is no longer needed with ASP.NET Core authentication
+        // The authentication is handled by the authentication middleware
+        _logger.LogInformation("ProcessAuthorizationCodeAsync called - authentication is now handled by ASP.NET Core");
+        return Task.FromResult(true);
     }
 
     public async Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime)
@@ -128,6 +114,8 @@ public class GoogleCalendarService : ICalendarService
 
         try
         {
+            _logger.LogInformation($"Fetching calendar events from {startDate} to {endDate} for calendar {calendarId}");
+
             // Get all events in the date range
             var request = _calendarService!.Events.List(calendarId);
             request.TimeMinDateTimeOffset = startDate;
@@ -136,49 +124,53 @@ public class GoogleCalendarService : ICalendarService
             request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
 
             var events = await request.ExecuteAsync();
+            _logger.LogInformation($"Found {events.Items.Count} existing events in the date range");
 
-            // Generate potential time slots (e.g., every 30 minutes from 9 AM to 5 PM)
-            var current = startDate.Date.AddHours(9); // Start at 9 AM
-            var dayEnd = startDate.Date.AddHours(17); // End at 5 PM
+            // Generate time slots for the specific date and time range
+            _logger.LogInformation($"Generating time slots from {startDate:MM/dd/yyyy h:mm tt} to {endDate:MM/dd/yyyy h:mm tt}");
+            
+            var current = startDate;
 
-            while (current.Date <= endDate.Date)
+            while (current < endDate)
             {
-                while (current.TimeOfDay < dayEnd.TimeOfDay)
+                var slotEnd = current.AddMinutes(durationMinutes);
+                
+                // Ensure the entire appointment fits within the time window
+                if (slotEnd <= endDate)
                 {
-                    var slotEnd = current.AddMinutes(durationMinutes);
-                    
-                    if (slotEnd.TimeOfDay <= dayEnd.TimeOfDay)
+                    var isAvailable = !events.Items.Any(e =>
                     {
-                        var isAvailable = !events.Items.Any(e =>
+                        var eventStart = e.Start.DateTimeDateTimeOffset?.DateTime ?? e.Start.DateTime;
+                        var eventEnd = e.End.DateTimeDateTimeOffset?.DateTime ?? e.End.DateTime;
+                        
+                        if (eventStart.HasValue && eventEnd.HasValue)
                         {
-                            var eventStart = e.Start.DateTimeDateTimeOffset?.DateTime;
-                            var eventEnd = e.End.DateTimeDateTimeOffset?.DateTime;
+                            // Convert to local time if needed
+                            var localEventStart = eventStart.Value.Kind == DateTimeKind.Utc ? eventStart.Value.ToLocalTime() : eventStart.Value;
+                            var localEventEnd = eventEnd.Value.Kind == DateTimeKind.Utc ? eventEnd.Value.ToLocalTime() : eventEnd.Value;
                             
-                            if (eventStart.HasValue && eventEnd.HasValue)
-                            {
-                                return current < eventEnd && slotEnd > eventStart;
-                            }
-                            return false;
-                        });
+                            return current < localEventEnd && slotEnd > localEventStart;
+                        }
+                        return false;
+                    });
 
-                        timeSlots.Add(new TimeSlot
-                        {
-                            StartTime = current,
-                            EndTime = slotEnd,
-                            IsAvailable = isAvailable
-                        });
-                    }
-
-                    current = current.AddMinutes(30); // Move to next 30-minute slot
+                    timeSlots.Add(new TimeSlot
+                    {
+                        StartTime = current,
+                        EndTime = slotEnd,
+                        IsAvailable = isAvailable
+                    });
                 }
 
-                current = current.Date.AddDays(1).AddHours(9); // Move to next day at 9 AM
-                dayEnd = current.Date.AddHours(17);
+                current = current.AddMinutes(30); // Move to next 30-minute slot
             }
+
+            _logger.LogInformation($"Generated {timeSlots.Count} total time slots, {timeSlots.Count(s => s.IsAvailable)} available");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get available time slots");
+            _logger.LogError(ex, "Failed to get available time slots for calendar {CalendarId}", calendarId);
+            throw;
         }
 
         return timeSlots;
@@ -265,12 +257,63 @@ public class GoogleCalendarService : ICalendarService
         }
     }
 
-    private Task EnsureAuthenticatedAsync()
+    private async Task EnsureAuthenticatedAsync()
     {
         if (_calendarService == null)
         {
-            throw new InvalidOperationException("Google Calendar service not authenticated. Please complete the OAuth flow first.");
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext?.User?.Identity?.IsAuthenticated != true)
+            {
+                throw new InvalidOperationException("User is not authenticated. Please sign in with Google.");
+            }
+
+            var accessToken = await httpContext.GetTokenAsync("access_token");
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                throw new InvalidOperationException("Access token not found. Please sign in again.");
+            }
+
+            // Initialize the Calendar service with the access token
+            _calendarService = new CalendarService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = new AccessTokenCredential(accessToken),
+                ApplicationName = "Interview Scheduler"
+            });
+
+            _logger.LogInformation("Google Calendar service initialized with user access token");
         }
+    }
+
+
+    public Task ClearStoredCredentialsAsync()
+    {
+        // With ASP.NET Core authentication, clearing is handled by signing out
+        _calendarService = null;
+        _logger.LogInformation("Calendar service cleared - use sign out to clear authentication");
         return Task.CompletedTask;
+    }
+
+    public async Task<List<CalendarInfo>> GetCalendarsAsync()
+    {
+        await EnsureAuthenticatedAsync();
+
+        try
+        {
+            var request = _calendarService!.CalendarList.List();
+            var calendars = await request.ExecuteAsync();
+
+            return calendars.Items.Select(cal => new CalendarInfo
+            {
+                Id = cal.Id,
+                Name = cal.Summary ?? "Unnamed Calendar",
+                Description = cal.Description ?? string.Empty,
+                IsPrimary = cal.Primary ?? false
+            }).OrderByDescending(c => c.IsPrimary).ThenBy(c => c.Name).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve calendars");
+            return new List<CalendarInfo>();
+        }
     }
 }

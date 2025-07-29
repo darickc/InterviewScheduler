@@ -3,9 +3,12 @@
 @using InterviewScheduler.Core.Interfaces
 @using InterviewScheduler.Infrastructure.Data
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@using static InterviewScheduler.Core.Interfaces.ICalendarService
 @inject ApplicationDbContext DbContext
 @inject ICalendarService CalendarService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Leaders</PageTitle>
@@ -28,6 +31,9 @@
                         <i class="bi bi-check-circle"></i> Connected to Google Calendar
                     </div>
                     <small class="text-muted">Calendar integration is active</small>
+                    <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearCredentials">
+                        Disconnect
+                    </button>
                 }
                 else
                 {
@@ -36,6 +42,9 @@
                     </div>
                     <button class="btn btn-outline-primary btn-sm mt-2" @onclick="AuthorizeGoogleCalendar">
                         Connect Google Calendar
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearCredentials">
+                        Clear Cached Credentials
                     </button>
                 }
             </div>
@@ -70,9 +79,37 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Google Calendar ID</label>
-                    <InputText class="form-control" @bind-Value="currentLeader.GoogleCalendarId" />
-                    <small class="form-text text-muted">The Google Calendar ID for this leader's calendar</small>
+                    <label class="form-label">Google Calendar</label>
+                    @if (isCalendarAuthenticated && availableCalendars.Any())
+                    {
+                        <InputSelect class="form-control" @bind-Value="currentLeader.GoogleCalendarId">
+                            <option value="">Select a calendar</option>
+                            @foreach (var calendar in availableCalendars)
+                            {
+                                <option value="@calendar.Id">
+                                    @calendar.Name @(calendar.IsPrimary ? "(Primary)" : "")
+                                </option>
+                            }
+                        </InputSelect>
+                        <small class="form-text text-muted">Select the Google Calendar for this leader</small>
+                    }
+                    else if (isCalendarAuthenticated)
+                    {
+                        <div class="text-warning">
+                            <i class="bi bi-exclamation-triangle"></i> No calendars found. Please check your Google Calendar access.
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" @onclick="LoadCalendars">
+                            Refresh Calendars
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="text-warning">
+                            <i class="bi bi-exclamation-triangle"></i> Please connect to Google Calendar first
+                        </div>
+                        <InputText class="form-control mt-2" @bind-Value="currentLeader.GoogleCalendarId" placeholder="Or enter calendar ID manually" />
+                        <small class="form-text text-muted">You can enter a calendar ID manually if not connected</small>
+                    }
                 </div>
 
                 <div class="mb-3">
@@ -144,11 +181,16 @@
     private Leader? editingLeader;
     private bool showForm = false;
     private bool isCalendarAuthenticated = false;
+    private List<CalendarInfo> availableCalendars = new();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadLeaders();
         await CheckCalendarAuthentication();
+        if (isCalendarAuthenticated)
+        {
+            await LoadCalendars();
+        }
     }
 
     private async Task LoadLeaders()
@@ -156,6 +198,20 @@
         leaders = await DbContext.Leaders
             .OrderBy(l => l.Title)
             .ToListAsync();
+    }
+
+    private async Task LoadCalendars()
+    {
+        try
+        {
+            availableCalendars = await CalendarService.GetCalendarsAsync();
+        }
+        catch (Exception ex)
+        {
+            // Log the error - in a real app, would use proper error handling
+            Console.WriteLine($"Error loading calendars: {ex.Message}");
+            availableCalendars = new List<CalendarInfo>();
+        }
     }
 
     private void ShowAddLeader()
@@ -225,14 +281,42 @@
     {
         try
         {
-            var redirectUri = $"{Navigation.BaseUri}auth/google/callback";
-            var authUrl = await CalendarService.GetAuthorizationUrlAsync(redirectUri);
-            Navigation.NavigateTo(authUrl, true);
+            // Check if user is authenticated
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                // User is already authenticated, just refresh the page
+                await CheckCalendarAuthentication();
+                if (isCalendarAuthenticated)
+                {
+                    await LoadCalendars();
+                }
+            }
+            else
+            {
+                // Redirect to Google sign-in
+                Navigation.NavigateTo("/signin-google", true);
+            }
         }
         catch (Exception ex)
         {
             // Handle error - in a real app, would use proper error handling
-            Console.WriteLine($"Error getting authorization URL: {ex.Message}");
+            Console.WriteLine($"Error during authorization: {ex.Message}");
+        }
+    }
+
+    private void ClearCredentials()
+    {
+        try
+        {
+            // Clear the available calendars
+            availableCalendars.Clear();
+            // Sign out the user
+            Navigation.NavigateTo("/signout-google", true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error signing out: {ex.Message}");
         }
     }
 }

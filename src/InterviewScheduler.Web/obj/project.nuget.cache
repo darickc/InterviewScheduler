@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "MKHf/0N6LZs=",
+  "dgSpecHash": "KrpmGYaI3wI=",
   "success": true,
   "projectFilePath": "/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/InterviewScheduler.Web.csproj",
   "expectedPackageFiles": [
@@ -10,6 +10,10 @@
     "/Users/darickc/.nuget/packages/google.apis.calendar.v3/1.68.0.3557/google.apis.calendar.v3.1.68.0.3557.nupkg.sha512",
     "/Users/darickc/.nuget/packages/google.apis.core/1.68.0/google.apis.core.1.68.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.authentication.abstractions/2.2.0/microsoft.aspnetcore.authentication.abstractions.2.2.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.authentication.google/9.0.7/microsoft.aspnetcore.authentication.google.9.0.7.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.http.abstractions/2.2.0/microsoft.aspnetcore.http.abstractions.2.2.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/microsoft.aspnetcore.http.features/2.2.0/microsoft.aspnetcore.http.features.2.2.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.bcl.asyncinterfaces/7.0.0/microsoft.bcl.asyncinterfaces.7.0.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.build.framework/17.8.3/microsoft.build.framework.17.8.3.nupkg.sha512",
     "/Users/darickc/.nuget/packages/microsoft.build.locator/1.7.8/microsoft.build.locator.1.7.8.nupkg.sha512",
@@ -56,6 +60,7 @@
     "/Users/darickc/.nuget/packages/system.memory/4.5.3/system.memory.4.5.3.nupkg.sha512",
     "/Users/darickc/.nuget/packages/system.reflection.metadata/7.0.0/system.reflection.metadata.7.0.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "/Users/darickc/.nuget/packages/system.text.encodings.web/4.5.0/system.text.encodings.web.4.5.0.nupkg.sha512",
     "/Users/darickc/.nuget/packages/system.text.json/9.0.7/system.text.json.9.0.7.nupkg.sha512",
     "/Users/darickc/.nuget/packages/system.threading.channels/7.0.0/system.threading.channels.7.0.0.nupkg.sha512"
   ],

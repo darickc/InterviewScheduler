@@ -3,6 +3,14 @@
 *.db-shm
 *.db-wal
 
+# User secrets and environment files
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+.env
+.env.local
+.env.*.local
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

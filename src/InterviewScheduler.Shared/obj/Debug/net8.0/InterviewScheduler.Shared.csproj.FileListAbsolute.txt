@@ -9,3 +9,4 @@
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Shared/obj/Debug/net8.0/refint/InterviewScheduler.Shared.dll
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Shared/obj/Debug/net8.0/InterviewScheduler.Shared.pdb
 /Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Shared/obj/Debug/net8.0/ref/InterviewScheduler.Shared.dll
+/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Shared/obj/Debug/net8.0/InterviewScheduler.Shared.sourcelink.json

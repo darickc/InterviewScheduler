@@ -32,6 +32,10 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/Components/Layout/UserInfo.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9MYXlvdXQvVXNlckluZm8ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/Components/Pages/Appointments.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9BcHBvaW50bWVudHMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
@@ -54,10 +58,6 @@ build_metadata.AdditionalFiles.CssScope =
 
 [/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9FcnJvci5yYXpvcg==
-build_metadata.AdditionalFiles.CssScope = 
-
-[/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/Components/Pages/GoogleAuthCallback.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9QYWdlcy9Hb29nbGVBdXRoQ2FsbGJhY2sucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [/Users/darickc/Code/InterviewScheduler/src/InterviewScheduler.Web/Components/Pages/Home.razor]

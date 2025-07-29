@@ -13,7 +13,7 @@ public class AuthenticationController : Controller
     {
         var properties = new AuthenticationProperties 
         { 
-            RedirectUri = "/leaders"
+            RedirectUri = "/"
         };
         return Challenge(properties, "Google");
     }

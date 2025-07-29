@@ -6,6 +6,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
 @inject ICalendarService CalendarService
+@inject ISmsService SmsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
@@ -95,8 +96,21 @@
                                         <br><small class="text-muted">@appointment.AppointmentType?.Duration min</small>
                                     </td>
                                     <td>
-                                        <strong>@appointment.Contact?.Salutation @appointment.Contact?.FullName</strong>
-                                        <br><small class="text-muted">@appointment.Contact?.PhoneNumber</small>
+                                        <strong>@appointment.Contact?.FullName</strong>
+                                        <br><small class="text-muted">
+                                            @if (!string.IsNullOrEmpty(appointment.Contact?.PhoneNumber))
+                                            {
+                                                @appointment.Contact.PhoneNumber
+                                            }
+                                            else if (appointment.Contact?.IsMinor == true && appointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+                                            {
+                                                <span>Parent: @appointment.Contact.HeadOfHouse.PhoneNumber</span>
+                                            }
+                                            else
+                                            {
+                                                <span>No phone</span>
+                                            }
+                                        </small>
                                         @if (appointment.Contact?.IsMinor == true)
                                         {
                                             <br><span class="badge bg-info">Minor</span>
@@ -141,10 +155,10 @@
                                                 <i class="bi bi-eye"></i> Details
                                             </button>
                                             
-                                            @if (!string.IsNullOrEmpty(appointment.Contact?.PhoneNumber))
+                                            @if (HasValidPhoneForSms(appointment))
                                             {
                                                 <button class="btn btn-outline-info" @onclick="() => SendSMSReminder(appointment)">
-                                                    <i class="bi bi-phone"></i> SMS
+                                                    <i class="bi bi-phone"></i> SMS @(appointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(appointment.Contact?.HeadOfHouse?.PhoneNumber) ? "(Parent)" : "")
                                                 </button>
                                             }
                                         </div>
@@ -196,11 +210,25 @@ else
                             <table class="table table-sm">
                                 <tr>
                                     <td><strong>Name:</strong></td>
-                                    <td>@selectedAppointment.Contact?.Salutation @selectedAppointment.Contact?.FullName</td>
+                                    <td>@selectedAppointment.Contact?.FullName</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Phone:</strong></td>
-                                    <td>@selectedAppointment.Contact?.PhoneNumber</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(selectedAppointment.Contact?.PhoneNumber))
+                                        {
+                                            @selectedAppointment.Contact.PhoneNumber
+                                        }
+                                        else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
+                                        {
+                                            <span class="text-muted">No direct phone</span>
+                                            <br><small class="text-info">SMS will be sent to parent: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No phone number</span>
+                                        }
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td><strong>Age:</strong></td>
@@ -261,10 +289,26 @@ else
                     
                     @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
                     {
-                        <h6 class="mt-3">Message Template</h6>
+                        <h6 class="mt-3">Message Templates</h6>
                         <div class="alert alert-info">
+                            <strong>@(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")</strong><br>
                             @GetFormattedMessage(selectedAppointment)
                         </div>
+                        
+                        @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                        {
+                            <div class="alert alert-secondary">
+                                <strong>Adult Template (for reference):</strong><br>
+                                @GetAdultFormattedMessage(selectedAppointment)
+                            </div>
+                        }
+                        else if (selectedAppointment.Contact?.IsMinor == false && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                        {
+                            <div class="alert alert-secondary">
+                                <strong>Minor Template (for reference):</strong><br>
+                                @GetMinorFormattedMessage(selectedAppointment)
+                            </div>
+                        }
                     }
                 </div>
                 <div class="modal-footer">
@@ -449,25 +493,112 @@ else
 
     private async Task SendSMSReminder(Appointment appointment)
     {
-        if (appointment.Contact?.PhoneNumber == null || appointment.AppointmentType?.MessageTemplate == null)
+        if (appointment.Contact == null || appointment.AppointmentType == null || appointment.Leader == null)
             return;
 
-        var message = GetFormattedMessage(appointment);
-        var encodedMessage = Uri.EscapeDataString(message);
-        var smsUrl = $"sms:{appointment.Contact.PhoneNumber}?body={encodedMessage}";
+        // For minors, send SMS to parent if available
+        var targetPhoneNumber = appointment.Contact.PhoneNumber;
+        var isParentMessage = false;
+        
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+        {
+            targetPhoneNumber = appointment.Contact.HeadOfHouse.PhoneNumber;
+            isParentMessage = true;
+        }
+
+        if (string.IsNullOrEmpty(targetPhoneNumber))
+            return;
+
+        // Use appropriate message format
+        string message;
+        if (isParentMessage)
+        {
+            // Use the parent notification message format
+            message = GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime);
+        }
+        else
+        {
+            // Use regular message format
+            message = SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
+        }
+
+        var smsUrl = SmsService.GenerateSmsLink(targetPhoneNumber, message);
         
         await JSRuntime.InvokeVoidAsync("open", smsUrl, "_blank");
     }
 
     private string GetFormattedMessage(Appointment appointment)
     {
-        if (appointment.AppointmentType?.MessageTemplate == null || appointment.Contact == null || appointment.Leader == null)
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
             return "";
 
-        return appointment.AppointmentType.MessageTemplate
-            .Replace("{ContactName}", appointment.Contact.Salutation + " " + appointment.Contact.FullName)
-            .Replace("{LeaderName}", appointment.Leader.Name)
-            .Replace("{DateTime}", appointment.ScheduledTime.ToString("dddd, MMMM dd 'at' h:mm tt"))
-            .Replace("{Duration}", appointment.AppointmentType.Duration.ToString());
+        return SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
+    }
+    
+    private string GetAdultFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        // Force use of adult template by creating a temp contact that's not a minor
+        var adultContact = new Contact
+        {
+            FirstName = appointment.Contact.FirstName,
+            LastName = appointment.Contact.LastName,
+            Gender = appointment.Contact.Gender,
+            BirthDate = DateTime.Today.AddYears(-25), // Set to adult age (25 years old)
+            PhoneNumber = appointment.Contact.PhoneNumber,
+            HeadOfHouse = appointment.Contact.HeadOfHouse
+        };
+
+        return SmsService.FormatMessage(appointment.AppointmentType, adultContact, appointment.Leader, appointment.ScheduledTime);
+    }
+    
+    private string GetMinorFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        // Force use of minor template by creating a temp contact that's a minor
+        var minorContact = new Contact
+        {
+            FirstName = appointment.Contact.FirstName,
+            LastName = appointment.Contact.LastName,
+            Gender = appointment.Contact.Gender,
+            BirthDate = DateTime.Today.AddYears(-16), // Set to minor age (16 years old)
+            PhoneNumber = appointment.Contact.PhoneNumber,
+            HeadOfHouse = appointment.Contact.HeadOfHouse ?? appointment.Contact
+        };
+
+        return SmsService.FormatMessage(appointment.AppointmentType, minorContact, appointment.Leader, appointment.ScheduledTime);
+    }
+
+    private bool HasValidPhoneForSms(Appointment appointment)
+    {
+        if (appointment.Contact == null)
+            return false;
+
+        // Check if contact has a phone number
+        if (!string.IsNullOrEmpty(appointment.Contact.PhoneNumber))
+            return true;
+
+        // For minors, check if parent has a phone number
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+            return true;
+
+        return false;
+    }
+
+    private string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime)
+    {
+        var parentSalutation = child.HeadOfHouse!.Gender == InterviewScheduler.Core.Enums.Gender.Male ? "Brother" : "Sister";
+        return $"Hello {parentSalutation} {child.HeadOfHouse.FullName}, " +
+               $"your child {child.FullName} has been scheduled for a {appointmentType.Name.ToLower()} " +
+               $"with {leader.Name} ({leader.Title}) " +
+               $"on {scheduledTime:dddd, MMMM dd} at {scheduledTime:h:mm tt}. " +
+               $"The appointment will last approximately {appointmentType.Duration} minutes. " +
+               $"Please ensure they are available at this time. Thank you!";
     }
 }

@@ -25,7 +25,17 @@
                         <option value="">Select a contact</option>
                         @foreach (var contact in contacts)
                         {
-                            <option value="@contact.Id">@contact.Salutation @contact.FullName (@contact.PhoneNumber)</option>
+                            <option value="@contact.Id">
+                                @contact.Salutation @contact.FullName 
+                                @if (!string.IsNullOrEmpty(contact.PhoneNumber))
+                                {
+                                    <text>(@contact.PhoneNumber)</text>
+                                }
+                                else if (contact.IsMinor && contact.HeadOfHouse != null && !string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+                                {
+                                    <text>(Minor - Parent: @contact.HeadOfHouse.PhoneNumber)</text>
+                                }
+                            </option>
                         }
                     </select>
                 </div>
@@ -273,7 +283,8 @@
     {
         contacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
-            .Where(c => !string.IsNullOrEmpty(c.PhoneNumber))
+            .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
+                       (c.IsMinor && c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
             .ToListAsync();

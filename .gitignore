@@ -370,3 +370,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# macOS files
+.DS_Store
+
+# Temporary directories
+.claude/

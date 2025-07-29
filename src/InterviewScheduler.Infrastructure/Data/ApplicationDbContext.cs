@@ -81,6 +81,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MessageTemplate)
                 .IsRequired()
                 .HasMaxLength(1000);
+                
+            entity.Property(e => e.MinorMessageTemplate)
+                .IsRequired()
+                .HasMaxLength(1000);
         });
         
         // Appointment entity configuration
@@ -111,14 +115,16 @@ public class ApplicationDbContext : DbContext
                 Id = 1,
                 Name = "Generic Meeting",
                 Duration = 15,
-                MessageTemplate = "{Salutation} {LastName}, can you meet with {LeaderName} this {Day} at {Time}?"
+                MessageTemplate = "{ContactName}, can you meet with {LeaderName} on {Date} at {Time}?",
+                MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child has been scheduled to meet with {LeaderName} on {Date} at {Time}. Please ensure they are available."
             },
             new AppointmentType
             {
                 Id = 2,
                 Name = "Temple Recommend Interview",
                 Duration = 10,
-                MessageTemplate = "{Salutation} {LastName}, your temple recommend has expired or is about to expire. Can you meet with {LeaderName} for a temple recommend interview this {Day} at {Time}?"
+                MessageTemplate = "{ContactName}, your temple recommend has expired or is about to expire. Can you meet with {LeaderName} for a temple recommend interview on {Date} at {Time}?",
+                MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child's temple recommend requires renewal. They have been scheduled with {LeaderName} on {Date} at {Time} for their interview."
             }
         );
     }

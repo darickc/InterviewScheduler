@@ -6,6 +6,7 @@ public class AppointmentType
     public string Name { get; set; } = string.Empty;
     public int Duration { get; set; } // in minutes
     public string MessageTemplate { get; set; } = string.Empty;
+    public string MinorMessageTemplate { get; set; } = string.Empty;
     
     // Navigation properties
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();

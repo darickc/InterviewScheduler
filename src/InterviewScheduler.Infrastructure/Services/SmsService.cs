@@ -28,17 +28,26 @@ public class SmsService : ISmsService
 
     public string FormatMessage(AppointmentType appointmentType, Contact contact, Leader leader, DateTime scheduledTime)
     {
-        if (string.IsNullOrEmpty(appointmentType.MessageTemplate))
+        // Select appropriate template based on whether contact is a minor
+        var template = contact.IsMinor && !string.IsNullOrEmpty(appointmentType.MinorMessageTemplate) 
+            ? appointmentType.MinorMessageTemplate 
+            : appointmentType.MessageTemplate;
+            
+        if (string.IsNullOrEmpty(template))
         {
             return GetDefaultMessage(contact, leader, scheduledTime, appointmentType.Duration);
         }
 
-        var message = appointmentType.MessageTemplate
+        var message = template
             .Replace("{ContactName}", GetContactSalutation(contact))
+            .Replace("{Salutation}", contact.Salutation)
+            .Replace("{FirstName}", contact.FirstName)
+            .Replace("{LastName}", contact.LastName)
             .Replace("{LeaderName}", leader.Name)
             .Replace("{LeaderTitle}", leader.Title)
             .Replace("{DateTime}", scheduledTime.ToString("dddd, MMMM dd 'at' h:mm tt"))
             .Replace("{Date}", scheduledTime.ToString("dddd, MMMM dd"))
+            .Replace("{Day}", scheduledTime.ToString("dddd, MMMM dd"))
             .Replace("{Time}", scheduledTime.ToString("h:mm tt"))
             .Replace("{Duration}", appointmentType.Duration.ToString())
             .Replace("{AppointmentType}", appointmentType.Name);
@@ -52,29 +61,35 @@ public class SmsService : ISmsService
 
         foreach (var contact in contacts)
         {
-            if (!IsValidPhoneNumber(contact.PhoneNumber))
+            var hasValidContactPhone = IsValidPhoneNumber(contact.PhoneNumber);
+            var hasValidParentPhone = contact.IsMinor && contact.HeadOfHouse != null && 
+                                    IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber);
+
+            // Skip contacts that have no valid way to reach them
+            if (!hasValidContactPhone && !hasValidParentPhone)
             {
-                _logger.LogWarning("Invalid phone number for contact {ContactName}: {PhoneNumber}", 
-                    contact.FullName, contact.PhoneNumber);
+                _logger.LogWarning("No valid phone number for contact {ContactName}: Contact Phone: {ContactPhone}, Parent Phone: {ParentPhone}", 
+                    contact.FullName, contact.PhoneNumber, contact.HeadOfHouse?.PhoneNumber);
                 continue;
             }
 
-            // Generate primary message for the contact
-            var primaryMessage = FormatMessage(appointmentType, contact, leader, scheduledTime);
-            
-            messages.Add(new SmsMessage
+            // Generate primary message for the contact if they have a valid phone number
+            if (hasValidContactPhone)
             {
-                ContactName = contact.FullName,
-                PhoneNumber = contact.PhoneNumber!,
-                Message = primaryMessage,
-                SmsLink = GenerateSmsLink(contact.PhoneNumber!, primaryMessage),
-                IsMinorNotification = false
-            });
+                var primaryMessage = FormatMessage(appointmentType, contact, leader, scheduledTime);
+                
+                messages.Add(new SmsMessage
+                {
+                    ContactName = contact.FullName,
+                    PhoneNumber = contact.PhoneNumber!,
+                    Message = primaryMessage,
+                    SmsLink = GenerateSmsLink(contact.PhoneNumber!, primaryMessage),
+                    IsMinorNotification = false
+                });
+            }
 
             // Generate parent notification for minors
-            if (contact.IsMinor && contact.HeadOfHouse != null && 
-                IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber) &&
-                contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
+            if (hasValidParentPhone && contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
             {
                 var parentMessage = GenerateParentNotificationMessage(contact, leader, appointmentType, scheduledTime);
                 
@@ -155,6 +170,29 @@ public class SmsService : ISmsService
 
     private string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime)
     {
+        // Use minor template if available, otherwise generate default parent notification
+        if (!string.IsNullOrEmpty(appointmentType.MinorMessageTemplate))
+        {
+            var message = appointmentType.MinorMessageTemplate
+                .Replace("{ContactName}", child.FullName)
+                .Replace("{ChildName}", child.FullName)
+                .Replace("{ParentName}", GetContactSalutation(child.HeadOfHouse!))
+                .Replace("{Salutation}", child.Salutation)
+                .Replace("{FirstName}", child.FirstName)
+                .Replace("{LastName}", child.LastName)
+                .Replace("{LeaderName}", leader.Name)
+                .Replace("{LeaderTitle}", leader.Title)
+                .Replace("{DateTime}", scheduledTime.ToString("dddd, MMMM dd 'at' h:mm tt"))
+                .Replace("{Date}", scheduledTime.ToString("dddd, MMMM dd"))
+                .Replace("{Day}", scheduledTime.ToString("dddd, MMMM dd"))
+                .Replace("{Time}", scheduledTime.ToString("h:mm tt"))
+                .Replace("{Duration}", appointmentType.Duration.ToString())
+                .Replace("{AppointmentType}", appointmentType.Name);
+            
+            return message;
+        }
+        
+        // Default parent notification if no template provided
         return $"Hello {GetContactSalutation(child.HeadOfHouse!)}, " +
                $"your child {child.FullName} has been scheduled for a {appointmentType.Name.ToLower()} " +
                $"with {leader.Name} ({leader.Title}) " +

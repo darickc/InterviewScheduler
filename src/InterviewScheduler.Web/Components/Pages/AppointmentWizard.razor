@@ -85,7 +85,7 @@
                                     {
                                         <div class="list-group-item d-flex justify-content-between align-items-center">
                                             <div>
-                                                <strong>@contact.Salutation @contact.FullName</strong>
+                                                <strong>@contact.FullName</strong>
                                                 <br><small>@contact.PhoneNumber • Age: @contact.Age @(contact.IsMinor ? "(Minor)" : "")</small>
                                                 @if (contact.HeadOfHouse != null)
                                                 {
@@ -108,7 +108,7 @@
                                         {
                                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                                 <div>
-                                                    <strong>@contact.Salutation @contact.FullName</strong>
+                                                    <strong>@contact.FullName</strong>
                                                     <br><small>@contact.PhoneNumber</small>
                                                     @if (contact.IsMinor)
                                                     {
@@ -240,8 +240,11 @@
                                 {
                                     <div class="alert alert-info">
                                         <strong>Duration:</strong> @selectedAppointmentType.Duration minutes<br>
-                                        <strong>Message Template:</strong><br>
+                                        <strong>Message Template (Adults):</strong><br>
                                         <small>@selectedAppointmentType.MessageTemplate</small>
+                                        <br><br>
+                                        <strong>Message Template (Minors/Parents):</strong><br>
+                                        <small>@selectedAppointmentType.MinorMessageTemplate</small>
                                     </div>
                                 }
                             </div>
@@ -567,7 +570,6 @@
         var appointmentDuration = selectedAppointmentType!.Duration;
         var searchEnd = appointmentDate.Date.Add(endTime.ToTimeSpan());
         
-        var leadersWithCalendars = selectedLeaders.Where(l => !string.IsNullOrEmpty(l.GoogleCalendarId)).ToList();
         var scheduledTimes = new HashSet<(int leaderId, DateTime time)>(); // Track scheduled appointments per leader
         
         foreach (var contact in selectedContacts)
@@ -579,7 +581,7 @@
             while (!assigned && timeToTry.AddMinutes(appointmentDuration) <= searchEnd)
             {
                 // Check if any leader is available at this time
-                foreach (var leader in leadersWithCalendars)
+                foreach (var leader in selectedLeaders)
                 {
                     var slotKey = (leader.Id, timeToTry);
                     
@@ -664,7 +666,7 @@
             {
                 if (!scheduledContactIds.Contains(contact.Id))
                 {
-                    unscheduledContacts.Add($"{contact.Salutation} {contact.FullName}");
+                    unscheduledContacts.Add($"{contact.FullName}");
                 }
             }
 
@@ -743,7 +745,6 @@
         var appointmentDuration = selectedAppointmentType!.Duration;
         var searchEnd = appointmentDate.Date.Add(endTime.ToTimeSpan());
         
-        var leadersWithCalendars = selectedLeaders.Where(l => !string.IsNullOrEmpty(l.GoogleCalendarId)).ToList();
         var scheduledTimes = new HashSet<(int leaderId, DateTime time)>(); // Track scheduled appointments per leader
         
         foreach (var contact in selectedContacts)
@@ -755,7 +756,7 @@
             while (!assigned && timeToTry.AddMinutes(appointmentDuration) <= searchEnd)
             {
                 // Check if any leader is available at this time
-                foreach (var leader in leadersWithCalendars)
+                foreach (var leader in selectedLeaders)
                 {
                     var slotKey = (leader.Id, timeToTry);
                     

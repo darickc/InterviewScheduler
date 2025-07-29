@@ -25,7 +25,7 @@
                             <tr>
                                 <th>Name</th>
                                 <th>Duration (minutes)</th>
-                                <th>Message Template</th>
+                                <th>Message Templates</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -35,8 +35,15 @@
                                 <tr>
                                     <td>@type.Name</td>
                                     <td>@type.Duration</td>
-                                    <td class="text-truncate" style="max-width: 200px;" title="@type.MessageTemplate">
-                                        @type.MessageTemplate
+                                    <td style="max-width: 300px;">
+                                        <div class="mb-1">
+                                            <strong>Adults:</strong><br>
+                                            <small class="text-truncate d-block" title="@type.MessageTemplate">@type.MessageTemplate</small>
+                                        </div>
+                                        <div>
+                                            <strong>Minors:</strong><br>
+                                            <small class="text-truncate d-block" title="@type.MinorMessageTemplate">@type.MinorMessageTemplate</small>
+                                        </div>
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-primary me-2" @onclick="() => EditAppointmentType(type)">
@@ -82,11 +89,20 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="messageTemplate" class="form-label">Message Template *</label>
+                        <label for="messageTemplate" class="form-label">Message Template (Adults) *</label>
                         <InputTextArea id="messageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MessageTemplate" />
                         <ValidationMessage For="() => appointmentTypeForm.MessageTemplate" />
                         <small class="form-text text-muted">
-                            Available placeholders: {ContactName}, {LeaderName}, {DateTime}, {Duration}
+                            Available placeholders: {ContactName}, {Salutation}, {FirstName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="minorMessageTemplate" class="form-label">Message Template (Minors/Parents) *</label>
+                        <InputTextArea id="minorMessageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MinorMessageTemplate" />
+                        <ValidationMessage For="() => appointmentTypeForm.MinorMessageTemplate" />
+                        <small class="form-text text-muted">
+                            Available placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
                         </small>
                     </div>
                     
@@ -162,7 +178,8 @@
                 {
                     Name = appointmentTypeForm.Name,
                     Duration = appointmentTypeForm.Duration,
-                    MessageTemplate = appointmentTypeForm.MessageTemplate
+                    MessageTemplate = appointmentTypeForm.MessageTemplate,
+                    MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate
                 };
                 DbContext.AppointmentTypes.Add(newType);
             }
@@ -172,6 +189,7 @@
                 editingType.Name = appointmentTypeForm.Name;
                 editingType.Duration = appointmentTypeForm.Duration;
                 editingType.MessageTemplate = appointmentTypeForm.MessageTemplate;
+                editingType.MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate;
             }
 
             await DbContext.SaveChangesAsync();
@@ -192,7 +210,8 @@
         {
             Name = type.Name,
             Duration = type.Duration,
-            MessageTemplate = type.MessageTemplate
+            MessageTemplate = type.MessageTemplate,
+            MinorMessageTemplate = type.MinorMessageTemplate
         };
     }
 
@@ -223,6 +242,7 @@
         appointmentTypeForm.Name = template.Name;
         appointmentTypeForm.Duration = template.Duration;
         appointmentTypeForm.MessageTemplate = template.MessageTemplate;
+        appointmentTypeForm.MinorMessageTemplate = template.MinorMessageTemplate;
     }
 
     public class AppointmentTypeForm
@@ -238,6 +258,10 @@
         [Required]
         [StringLength(500)]
         public string MessageTemplate { get; set; } = "";
+        
+        [Required]
+        [StringLength(500)]
+        public string MinorMessageTemplate { get; set; } = "";
     }
 
     public class DefaultTemplate
@@ -245,6 +269,7 @@
         public string Name { get; set; } = "";
         public int Duration { get; set; }
         public string MessageTemplate { get; set; } = "";
+        public string MinorMessageTemplate { get; set; } = "";
     }
 
     public static class DefaultTemplates
@@ -253,28 +278,32 @@
         {
             Name = "Generic Meeting",
             Duration = 30,
-            MessageTemplate = "Hello {ContactName}, you have been scheduled for a meeting with {LeaderName} on {DateTime}. Please confirm your attendance."
+            MessageTemplate = "Hello {ContactName}, you have been scheduled for a meeting with {LeaderName} on {DateTime}. Please confirm your attendance.",
+            MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child has been scheduled to meet with {LeaderName} on {DateTime}. Please ensure they are available."
         };
 
         public static DefaultTemplate TempleRecommend => new()
         {
             Name = "Temple Recommend Interview",
             Duration = 20,
-            MessageTemplate = "Dear {ContactName}, you have a temple recommend interview scheduled with {LeaderName} on {DateTime}. Please come prepared with any questions you may have."
+            MessageTemplate = "Dear {ContactName}, you have a temple recommend interview scheduled with {LeaderName} on {DateTime}. Please come prepared with any questions you may have.",
+            MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child has a temple recommend interview scheduled with {LeaderName} on {DateTime}. Please ensure they attend."
         };
 
         public static DefaultTemplate Tithing => new()
         {
             Name = "Tithing Settlement",
             Duration = 15,
-            MessageTemplate = "Hi {ContactName}, your tithing settlement appointment with {LeaderName} is scheduled for {DateTime}. Please bring your donation records."
+            MessageTemplate = "Hi {ContactName}, your tithing settlement appointment with {LeaderName} is scheduled for {DateTime}. Please bring your donation records.",
+            MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your family's tithing settlement with {LeaderName} is scheduled for {DateTime}. Please bring donation records."
         };
 
         public static DefaultTemplate Counseling => new()
         {
             Name = "Personal Counseling",
             Duration = 45,
-            MessageTemplate = "Dear {ContactName}, you have a counseling appointment with {LeaderName} on {DateTime}. This will be a confidential discussion."
+            MessageTemplate = "Dear {ContactName}, you have a counseling appointment with {LeaderName} on {DateTime}. This will be a confidential discussion.",
+            MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child has a counseling appointment with {LeaderName} on {DateTime}. Please ensure they attend."
         };
     }
 }

@@ -8,6 +8,10 @@ public class AppointmentType
     public string MessageTemplate { get; set; } = string.Empty;
     public string MinorMessageTemplate { get; set; } = string.Empty;
     
+    // User relationship
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    
     // Navigation properties
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }

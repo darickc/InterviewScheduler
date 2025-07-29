@@ -6,6 +6,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
 @inject ICsvParserService CsvParser
+@inject IUserService UserService
 @rendermode InteractiveServer
 
 <PageTitle>Contacts</PageTitle>
@@ -231,9 +232,13 @@
 
     private async Task LoadContacts()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         contacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
             .Include(c => c.Spouse)
+            .Where(c => c.UserId == currentUser.Id)
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
             .ToListAsync();
@@ -334,10 +339,25 @@
 
             if (importedContacts.Any())
             {
-                // Clear all existing contacts first
-                var existingContacts = await DbContext.Contacts.ToListAsync();
+                var currentUser = await UserService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    importMessage = "User not found. Please sign in again.";
+                    importSuccess = false;
+                    return;
+                }
+
+                // Clear existing contacts for this user only
+                var existingContacts = await DbContext.Contacts
+                    .Where(c => c.UserId == currentUser.Id)
+                    .ToListAsync();
                 DbContext.Contacts.RemoveRange(existingContacts);
-                await DbContext.SaveChangesAsync();
+
+                // Assign user to all imported contacts
+                foreach (var contact in importedContacts)
+                {
+                    contact.UserId = currentUser.Id;
+                }
 
                 // Add imported contacts to database
                 await DbContext.Contacts.AddRangeAsync(importedContacts);

@@ -8,6 +8,10 @@ public class Leader
     public string GoogleCalendarId { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     
+    // User relationship
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    
     // Navigation properties
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
 }

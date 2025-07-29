@@ -25,6 +25,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<ICsvParserService, CsvParserService>();
 builder.Services.AddScoped<ICalendarService, GoogleCalendarService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Add authentication
 builder.Services.AddAuthentication(options =>
@@ -61,11 +62,21 @@ builder.Services.AddAuthentication(options =>
         return Task.CompletedTask;
     };
     
-    googleOptions.Events.OnTicketReceived = context =>
+    googleOptions.Events.OnTicketReceived = async context =>
     {
         var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
         logger.LogInformation("Google authentication successful");
-        return Task.CompletedTask;
+        
+        // Create or update user in database
+        var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
+        var googleUserId = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var email = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        var name = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+        
+        if (!string.IsNullOrEmpty(googleUserId) && !string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(name))
+        {
+            await userService.GetOrCreateUserAsync(googleUserId, email, name);
+        }
     };
 });
 
@@ -103,11 +114,11 @@ app.MapControllers();
 // Map health check endpoint
 app.MapHealthChecks("/health");
 
-// Ensure database is created
+// Ensure database is created and migrations applied
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.EnsureCreated();
+    dbContext.Database.Migrate();
 }
 
 app.Run();

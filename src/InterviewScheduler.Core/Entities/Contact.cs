@@ -11,6 +11,10 @@ public class Contact
     public Gender Gender { get; set; }
     public DateTime BirthDate { get; set; }
     
+    // User relationship
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
+    
     // Family relationships
     public int? HeadOfHouseId { get; set; }
     public Contact? HeadOfHouse { get; set; }

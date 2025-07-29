@@ -11,6 +11,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject ILogger<AppointmentWizard> Logger
+@inject IUserService UserService
 @rendermode InteractiveServer
 
 <PageTitle>Schedule Appointment</PageTitle>
@@ -431,19 +432,24 @@
 
     private async Task LoadData()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         allContacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
             .Include(c => c.Spouse)
+            .Where(c => c.UserId == currentUser.Id)
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
             .ToListAsync();
 
         activeLeaders = await DbContext.Leaders
-            .Where(l => l.IsActive)
+            .Where(l => l.IsActive && l.UserId == currentUser.Id)
             .OrderBy(l => l.Title)
             .ToListAsync();
 
         appointmentTypes = await DbContext.AppointmentTypes
+            .Where(t => t.UserId == currentUser.Id)
             .OrderBy(t => t.Name)
             .ToListAsync();
     }
@@ -635,6 +641,9 @@
         if (selectedContacts.Count == 0 || !selectedLeaders.Any() || selectedAppointmentType == null)
             return;
 
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+
         isCreatingAppointment = true;
         try
         {
@@ -654,7 +663,8 @@
                     AppointmentTypeId = selectedAppointmentType.Id,
                     ScheduledTime = scheduled.ScheduledTime,
                     Status = AppointmentStatus.Pending,
-                    CreatedDate = DateTime.Now
+                    CreatedDate = DateTime.Now,
+                    UserId = currentUser.Id
                 };
 
                 DbContext.Appointments.Add(appointment);

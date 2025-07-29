@@ -10,6 +10,7 @@
 @inject ISmsService SmsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject IUserService UserService
 @rendermode InteractiveServer
 
 <PageTitle>Appointments</PageTitle>
@@ -350,16 +351,20 @@ else
 
     private async Task LoadData()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         appointments = await DbContext.Appointments
             .Include(a => a.Contact)
                 .ThenInclude(c => c!.HeadOfHouse)
             .Include(a => a.Leader)
             .Include(a => a.AppointmentType)
+            .Where(a => a.UserId == currentUser.Id)
             .OrderBy(a => a.ScheduledTime)
             .ToListAsync();
 
         leaders = await DbContext.Leaders
-            .Where(l => l.IsActive)
+            .Where(l => l.IsActive && l.UserId == currentUser.Id)
             .OrderBy(l => l.Title)
             .ToListAsync();
     }

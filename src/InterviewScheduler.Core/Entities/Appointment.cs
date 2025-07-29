@@ -18,4 +18,8 @@ public class Appointment
     public string? GoogleEventId { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Pending;
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    
+    // User relationship
+    public int UserId { get; set; }
+    public User User { get; set; } = null!;
 }

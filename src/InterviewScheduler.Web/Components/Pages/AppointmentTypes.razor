@@ -1,11 +1,13 @@
 @page "/appointment-types"
 @attribute [Authorize]
 @using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Interfaces
 @using InterviewScheduler.Infrastructure.Data
 @using Microsoft.EntityFrameworkCore
 @using System.ComponentModel.DataAnnotations
 @inject ApplicationDbContext DbContext
 @inject IJSRuntime JSRuntime
+@inject IUserService UserService
 @rendermode InteractiveServer
 
 <PageTitle>Appointment Types</PageTitle>
@@ -163,7 +165,11 @@
 
     private async Task LoadAppointmentTypes()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         appointmentTypes = await DbContext.AppointmentTypes
+            .Where(t => t.UserId == currentUser.Id)
             .OrderBy(t => t.Name)
             .ToListAsync();
     }
@@ -172,6 +178,9 @@
     {
         try
         {
+            var currentUser = await UserService.GetCurrentUserAsync();
+            if (currentUser == null) return;
+            
             if (editingType == null)
             {
                 // Add new appointment type
@@ -180,7 +189,8 @@
                     Name = appointmentTypeForm.Name,
                     Duration = appointmentTypeForm.Duration,
                     MessageTemplate = appointmentTypeForm.MessageTemplate,
-                    MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate
+                    MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate,
+                    UserId = currentUser.Id
                 };
                 DbContext.AppointmentTypes.Add(newType);
             }

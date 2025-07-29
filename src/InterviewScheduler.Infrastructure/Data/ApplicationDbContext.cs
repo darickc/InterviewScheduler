@@ -9,6 +9,7 @@ public class ApplicationDbContext : DbContext
     {
     }
     
+    public DbSet<User> Users { get; set; }
     public DbSet<Contact> Contacts { get; set; }
     public DbSet<Leader> Leaders { get; set; }
     public DbSet<AppointmentType> AppointmentTypes { get; set; }
@@ -17,6 +18,27 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        // User entity configuration
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            entity.Property(e => e.GoogleUserId)
+                .IsRequired()
+                .HasMaxLength(255);
+                
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255);
+                
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+                
+            entity.HasIndex(e => e.GoogleUserId).IsUnique();
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
         
         // Contact entity configuration
         modelBuilder.Entity<Contact>(entity =>
@@ -33,6 +55,12 @@ public class ApplicationDbContext : DbContext
                 
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20);
+            
+            // User relationship
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Contacts)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
             
             // Self-referencing relationships
             entity.HasOne(e => e.HeadOfHouse)
@@ -67,6 +95,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.GoogleCalendarId)
                 .IsRequired()
                 .HasMaxLength(255);
+                
+            // User relationship
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Leaders)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
         
         // AppointmentType entity configuration
@@ -85,6 +119,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MinorMessageTemplate)
                 .IsRequired()
                 .HasMaxLength(1000);
+                
+            // User relationship
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.AppointmentTypes)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
         
         // Appointment entity configuration
@@ -106,26 +146,12 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.AppointmentType)
                 .WithMany(e => e.Appointments)
                 .HasForeignKey(e => e.AppointmentTypeId);
+                
+            // User relationship
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Appointments)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
-        
-        // Seed data for appointment types
-        modelBuilder.Entity<AppointmentType>().HasData(
-            new AppointmentType
-            {
-                Id = 1,
-                Name = "Generic Meeting",
-                Duration = 15,
-                MessageTemplate = "{ContactName}, can you meet with {LeaderName} on {Date} at {Time}?",
-                MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child has been scheduled to meet with {LeaderName} on {Date} at {Time}. Please ensure they are available."
-            },
-            new AppointmentType
-            {
-                Id = 2,
-                Name = "Temple Recommend Interview",
-                Duration = 10,
-                MessageTemplate = "{ContactName}, your temple recommend has expired or is about to expire. Can you meet with {LeaderName} for a temple recommend interview on {Date} at {Time}?",
-                MinorMessageTemplate = "Dear Parent/Guardian of {ContactName}, your child's temple recommend requires renewal. They have been scheduled with {LeaderName} on {Date} at {Time} for their interview."
-            }
-        );
     }
 }

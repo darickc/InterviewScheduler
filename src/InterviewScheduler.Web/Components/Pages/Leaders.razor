@@ -10,6 +10,7 @@
 @inject ICalendarService CalendarService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IUserService UserService
 @rendermode InteractiveServer
 
 <PageTitle>Leaders</PageTitle>
@@ -196,7 +197,11 @@
 
     private async Task LoadLeaders()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         leaders = await DbContext.Leaders
+            .Where(l => l.UserId == currentUser.Id)
             .OrderBy(l => l.Title)
             .ToListAsync();
     }
@@ -230,7 +235,8 @@
             Name = leader.Name,
             Title = leader.Title,
             GoogleCalendarId = leader.GoogleCalendarId,
-            IsActive = leader.IsActive
+            IsActive = leader.IsActive,
+            UserId = leader.UserId
         };
         editingLeader = leader;
         showForm = true;
@@ -238,12 +244,17 @@
 
     private async Task SaveLeader()
     {
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+        
         if (editingLeader == null)
         {
+            currentLeader.UserId = currentUser.Id;
             DbContext.Leaders.Add(currentLeader);
         }
         else
         {
+            currentLeader.UserId = currentUser.Id; // Ensure UserId is set for updates too
             DbContext.Entry(editingLeader).CurrentValues.SetValues(currentLeader);
         }
 

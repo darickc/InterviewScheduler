@@ -1,7 +1,86 @@
 ﻿@page "/"
+@attribute [AllowAnonymous]
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Interview Scheduler</PageTitle>
 
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="display-4 text-center mb-4">Interview Scheduler</h1>
+            
+            <AuthorizeView>
+                <Authorized>
+                    <div class="alert alert-success">
+                        <h4 class="alert-heading">Welcome back, @context.User.Identity?.Name!</h4>
+                        <p>You are signed in and have access to all features.</p>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Appointments</h5>
+                                    <p class="card-text">Manage interview appointments and schedules.</p>
+                                    <a href="/appointments" class="btn btn-primary">View Appointments</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Contacts</h5>
+                                    <p class="card-text">Manage candidate and interviewer contacts.</p>
+                                    <a href="/contacts" class="btn btn-primary">View Contacts</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Leaders</h5>
+                                    <p class="card-text">Manage interviewers and their availability.</p>
+                                    <a href="/leaders" class="btn btn-primary">View Leaders</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Appointment Types</h5>
+                                    <p class="card-text">Configure different types of appointments.</p>
+                                    <a href="/appointment-types" class="btn btn-primary">View Types</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="text-center">
+                        <p class="lead">Welcome to the Interview Scheduler application. This system helps manage interview appointments, contacts, and schedules.</p>
+                        
+                        <div class="card mt-4 mx-auto" style="max-width: 500px;">
+                            <div class="card-body">
+                                <h5 class="card-title">Sign In Required</h5>
+                                <p class="card-text">Please sign in to access the Interview Scheduler features.</p>
+                                <a href="/signin-google" class="btn btn-primary btn-lg">
+                                    Sign in with Google
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-5">
+                            <h3>Features</h3>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><i class="bi bi-check-circle"></i> Schedule and manage interview appointments</li>
+                                <li class="mb-2"><i class="bi bi-check-circle"></i> Track candidate and interviewer contacts</li>
+                                <li class="mb-2"><i class="bi bi-check-circle"></i> Manage interviewer availability</li>
+                                <li class="mb-2"><i class="bi bi-check-circle"></i> Send SMS notifications and reminders</li>
+                                <li class="mb-2"><i class="bi bi-check-circle"></i> Google Calendar integration</li>
+                            </ul>
+                        </div>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</div>

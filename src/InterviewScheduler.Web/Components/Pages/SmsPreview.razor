@@ -284,10 +284,15 @@
         contacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
             .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
-                       (c.IsMinor && c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
+                       (c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
             .ToListAsync();
+
+        // Filter minors in memory after data is loaded
+        contacts = contacts.Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
+                                      (c.IsMinor && c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
+                           .ToList();
 
         leaders = await DbContext.Leaders
             .Where(l => l.IsActive)

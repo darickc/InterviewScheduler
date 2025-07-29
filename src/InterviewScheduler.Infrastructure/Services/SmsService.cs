@@ -42,6 +42,7 @@ public class SmsService : ISmsService
             .Replace("{ContactName}", GetContactSalutation(contact))
             .Replace("{Salutation}", contact.Salutation)
             .Replace("{FirstName}", contact.FirstName)
+            .Replace("{MiddleName}", contact.MiddleName ?? string.Empty)
             .Replace("{LastName}", contact.LastName)
             .Replace("{LeaderName}", leader.Name)
             .Replace("{LeaderTitle}", leader.Title)
@@ -89,13 +90,13 @@ public class SmsService : ISmsService
             }
 
             // Generate parent notification for minors
-            if (hasValidParentPhone && contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
+            if (hasValidParentPhone && contact.HeadOfHouse?.PhoneNumber != contact.PhoneNumber)
             {
                 var parentMessage = GenerateParentNotificationMessage(contact, leader, appointmentType, scheduledTime);
                 
                 messages.Add(new SmsMessage
                 {
-                    ContactName = contact.HeadOfHouse.FullName,
+                    ContactName = contact.HeadOfHouse!.FullName,
                     PhoneNumber = contact.HeadOfHouse.PhoneNumber!,
                     Message = parentMessage,
                     SmsLink = GenerateSmsLink(contact.HeadOfHouse.PhoneNumber!, parentMessage),
@@ -179,6 +180,7 @@ public class SmsService : ISmsService
                 .Replace("{ParentName}", GetContactSalutation(child.HeadOfHouse!))
                 .Replace("{Salutation}", child.Salutation)
                 .Replace("{FirstName}", child.FirstName)
+                .Replace("{MiddleName}", child.MiddleName ?? string.Empty)
                 .Replace("{LastName}", child.LastName)
                 .Replace("{LeaderName}", leader.Name)
                 .Replace("{LeaderTitle}", leader.Title)

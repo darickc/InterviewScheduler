@@ -187,6 +187,7 @@
             {
                 filtered = filtered.Where(c =>
                     c.FirstName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrEmpty(c.MiddleName) && c.MiddleName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
                     c.LastName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                     (c.PhoneNumber != null && c.PhoneNumber.Contains(searchTerm)));
             }
@@ -347,10 +348,20 @@
                     return;
                 }
 
-                // Clear existing contacts for this user only
+                // Clear existing contacts for this user only - Two-phase deletion to handle circular dependencies
                 var existingContacts = await DbContext.Contacts
                     .Where(c => c.UserId == currentUser.Id)
                     .ToListAsync();
+                
+                // Phase 1: Break circular dependencies by nullifying foreign key relationships
+                foreach (var contact in existingContacts)
+                {
+                    contact.HeadOfHouseId = null;
+                    contact.SpouseId = null;
+                }
+                await DbContext.SaveChangesAsync();
+                
+                // Phase 2: Now safely delete all contacts
                 DbContext.Contacts.RemoveRange(existingContacts);
 
                 // Assign user to all imported contacts

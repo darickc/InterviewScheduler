@@ -36,6 +36,7 @@ public class CsvParserService : ICsvParserService
             var contact = new Contact
             {
                 FirstName = ExtractFirstName(record.Name),
+                MiddleName = ExtractMiddleName(record.Name),
                 LastName = ExtractLastName(record.Name),
                 PhoneNumber = record.IndividualPhone,
                 Gender = ParseGender(record.Gender),
@@ -105,7 +106,26 @@ public class CsvParserService : ICsvParserService
     private string ExtractFirstName(string fullName)
     {
         var parts = fullName.Split(',');
-        return parts.Length > 1 ? parts[1].Trim() : string.Empty;
+        if (parts.Length <= 1) return string.Empty;
+        
+        var nameAfterComma = parts[1].Trim();
+        var nameParts = nameAfterComma.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        return nameParts.Length > 0 ? nameParts[0] : string.Empty;
+    }
+    
+    private string? ExtractMiddleName(string fullName)
+    {
+        var parts = fullName.Split(',');
+        if (parts.Length <= 1) return null;
+        
+        var nameAfterComma = parts[1].Trim();
+        var nameParts = nameAfterComma.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        if (nameParts.Length <= 1) return null;
+        
+        // Join all parts after the first as middle name(s)
+        return string.Join(" ", nameParts.Skip(1));
     }
     
     private string ExtractLastName(string fullName)

@@ -184,8 +184,8 @@ public class GoogleCalendarService : ICalendarService
         {
             var newEvent = new Event()
             {
-                Summary = $"Meeting with {appointment.Contact?.FullName}",
-                Description = $"Appointment Type: {appointment.AppointmentType?.Name}\nContact: {appointment.Contact?.FullName}\nPhone: {appointment.Contact?.PhoneNumber}",
+                Summary = appointment.Contact?.DisplayName ?? "Appointment",
+                Description = $"Appointment Type: {appointment.AppointmentType?.Name}\nContact: {appointment.Contact?.DisplayName}\nPhone: {appointment.Contact?.PhoneNumber}",
                 Start = new EventDateTime()
                 {
                     DateTimeDateTimeOffset = appointment.ScheduledTime,
@@ -201,7 +201,7 @@ public class GoogleCalendarService : ICalendarService
                     new EventAttendee()
                     {
                         Email = appointment.Contact?.PhoneNumber + "@sms.example.com", // Placeholder - would need actual email
-                        DisplayName = appointment.Contact?.FullName
+                        DisplayName = appointment.Contact?.DisplayName
                     }
                 }
             };
@@ -226,8 +226,8 @@ public class GoogleCalendarService : ICalendarService
         {
             var eventToUpdate = await _calendarService!.Events.Get(calendarId, eventId).ExecuteAsync();
             
-            eventToUpdate.Summary = $"Meeting with {appointment.Contact?.FullName}";
-            eventToUpdate.Description = $"Appointment Type: {appointment.AppointmentType?.Name}\nContact: {appointment.Contact?.FullName}\nPhone: {appointment.Contact?.PhoneNumber}";
+            eventToUpdate.Summary = appointment.Contact?.DisplayName ?? "Appointment";
+            eventToUpdate.Description = $"Appointment Type: {appointment.AppointmentType?.Name}\nContact: {appointment.Contact?.DisplayName}\nPhone: {appointment.Contact?.PhoneNumber}";
             eventToUpdate.Start.DateTimeDateTimeOffset = appointment.ScheduledTime;
             eventToUpdate.End.DateTimeDateTimeOffset = appointment.ScheduledTime.AddMinutes(appointment.AppointmentType?.Duration ?? 30);
 

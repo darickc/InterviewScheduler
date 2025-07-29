@@ -49,6 +49,9 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(100);
                 
+            entity.Property(e => e.MiddleName)
+                .HasMaxLength(100);
+                
             entity.Property(e => e.LastName)
                 .IsRequired()
                 .HasMaxLength(100);
@@ -74,6 +77,7 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
                 
             entity.Ignore(e => e.FullName)
+                .Ignore(e => e.DisplayName)
                 .Ignore(e => e.Age)
                 .Ignore(e => e.IsMinor)
                 .Ignore(e => e.Salutation);

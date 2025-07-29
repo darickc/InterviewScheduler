@@ -393,6 +393,7 @@ else
             {
                 filtered = filtered.Where(a =>
                     (a.Contact?.FirstName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (!string.IsNullOrEmpty(a.Contact?.MiddleName) && a.Contact.MiddleName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
                     (a.Contact?.LastName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
                     (a.Contact?.PhoneNumber?.Contains(searchTerm) == true) ||
                     (a.Leader?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||

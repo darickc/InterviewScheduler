@@ -96,7 +96,7 @@
                         <InputTextArea id="messageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MessageTemplate" />
                         <ValidationMessage For="() => appointmentTypeForm.MessageTemplate" />
                         <small class="form-text text-muted">
-                            Available placeholders: {ContactName}, {Salutation}, {FirstName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
+                            Available placeholders: {ContactName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
                         </small>
                     </div>
                     
@@ -105,7 +105,7 @@
                         <InputTextArea id="minorMessageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MinorMessageTemplate" />
                         <ValidationMessage For="() => appointmentTypeForm.MinorMessageTemplate" />
                         <small class="form-text text-muted">
-                            Available placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
+                            Available placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
                         </small>
                     </div>
                     

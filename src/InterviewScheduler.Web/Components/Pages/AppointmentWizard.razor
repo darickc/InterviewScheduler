@@ -464,6 +464,7 @@
             {
                 filtered = filtered.Where(c =>
                     c.FirstName.Contains(contactSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrEmpty(c.MiddleName) && c.MiddleName.Contains(contactSearchTerm, StringComparison.OrdinalIgnoreCase)) ||
                     c.LastName.Contains(contactSearchTerm, StringComparison.OrdinalIgnoreCase) ||
                     (c.PhoneNumber != null && c.PhoneNumber.Contains(contactSearchTerm)));
             }

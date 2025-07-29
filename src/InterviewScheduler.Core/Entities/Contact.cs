@@ -6,6 +6,7 @@ public class Contact
 {
     public int Id { get; set; }
     public string FirstName { get; set; } = string.Empty;
+    public string? MiddleName { get; set; }
     public string LastName { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public Gender Gender { get; set; }
@@ -27,7 +28,12 @@ public class Contact
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
     
     // Computed properties
-    public string FullName => $"{LastName}, {FirstName}";
+    public string FullName => string.IsNullOrEmpty(MiddleName) 
+        ? $"{LastName}, {FirstName}" 
+        : $"{LastName}, {FirstName} {MiddleName}";
+    public string DisplayName => string.IsNullOrEmpty(MiddleName) 
+        ? $"{FirstName} {LastName}" 
+        : $"{FirstName} {MiddleName} {LastName}";
     public int Age => CalculateAge();
     public bool IsMinor => Age <= 17;
     public string Salutation => Gender == Gender.Male ? "Brother" : "Sister";

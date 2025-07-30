@@ -284,6 +284,7 @@
     {
         contacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
+                .ThenInclude(h => h!.Spouse)
             .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
                        (c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
             .OrderBy(c => c.LastName)

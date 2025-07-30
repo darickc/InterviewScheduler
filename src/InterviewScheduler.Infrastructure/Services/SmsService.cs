@@ -90,19 +90,41 @@ public class SmsService : ISmsService
             }
 
             // Generate parent notification for minors
-            if (hasValidParentPhone && contact.HeadOfHouse?.PhoneNumber != contact.PhoneNumber)
+            if (contact.IsMinor && contact.HeadOfHouse != null)
             {
                 var parentMessage = GenerateParentNotificationMessage(contact, leader, appointmentType, scheduledTime);
-                
-                messages.Add(new SmsMessage
+
+                // Send to head of house if they have a valid phone number and it's different from the contact's
+                if (IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber) && 
+                    contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
                 {
-                    ContactName = contact.HeadOfHouse!.FullName,
-                    PhoneNumber = contact.HeadOfHouse.PhoneNumber!,
-                    Message = parentMessage,
-                    SmsLink = GenerateSmsLink(contact.HeadOfHouse.PhoneNumber!, parentMessage),
-                    IsMinorNotification = true,
-                    ParentName = contact.HeadOfHouse.FullName
-                });
+                    messages.Add(new SmsMessage
+                    {
+                        ContactName = contact.HeadOfHouse.FullName,
+                        PhoneNumber = contact.HeadOfHouse.PhoneNumber!,
+                        Message = parentMessage,
+                        SmsLink = GenerateSmsLink(contact.HeadOfHouse.PhoneNumber!, parentMessage),
+                        IsMinorNotification = true,
+                        ParentName = contact.HeadOfHouse.FullName
+                    });
+                }
+
+                // Send to spouse of head of house if they exist and have a valid phone number
+                if (contact.HeadOfHouse.Spouse != null && 
+                    IsValidPhoneNumber(contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                    contact.HeadOfHouse.Spouse.PhoneNumber != contact.PhoneNumber &&
+                    contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+                {
+                    messages.Add(new SmsMessage
+                    {
+                        ContactName = contact.HeadOfHouse.Spouse.FullName,
+                        PhoneNumber = contact.HeadOfHouse.Spouse.PhoneNumber!,
+                        Message = parentMessage,
+                        SmsLink = GenerateSmsLink(contact.HeadOfHouse.Spouse.PhoneNumber!, parentMessage),
+                        IsMinorNotification = true,
+                        ParentName = contact.HeadOfHouse.Spouse.FullName
+                    });
+                }
             }
         }
 

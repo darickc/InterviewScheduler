@@ -437,6 +437,7 @@
         
         allContacts = await DbContext.Contacts
             .Include(c => c.HeadOfHouse)
+                .ThenInclude(h => h!.Spouse)
             .Include(c => c.Spouse)
             .Where(c => c.UserId == currentUser.Id)
             .OrderBy(c => c.LastName)

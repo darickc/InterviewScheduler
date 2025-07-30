@@ -163,6 +163,13 @@
                                                     <i class="bi bi-phone"></i> SMS @GetSmsButtonLabel(appointment.Contact)
                                                 </button>
                                             }
+                                            
+                                            @if (appointment.Status == AppointmentStatus.Cancelled)
+                                            {
+                                                <button class="btn btn-outline-secondary" @onclick="() => DeleteAppointment(appointment)">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
@@ -219,12 +226,34 @@ else
                                     <td>
                                         @if (!string.IsNullOrEmpty(selectedAppointment.Contact?.PhoneNumber))
                                         {
-                                            @selectedAppointment.Contact.PhoneNumber
+                                            <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.PhoneNumber)" title="Click to copy">
+                                                @selectedAppointment.Contact.PhoneNumber <i class="bi bi-clipboard"></i>
+                                            </span>
                                         }
                                         else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
                                         {
                                             <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to: @GetParentPhoneDisplay(selectedAppointment.Contact)</small>
+                                            <br><small class="text-info">SMS will be sent to: 
+                                                @if (!string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
+                                                {
+                                                    <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber)" title="Click to copy">
+                                                        @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
+                                                    </span>
+                                                    @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null && 
+                                                        !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                                                        selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber != selectedAppointment.Contact.HeadOfHouse.PhoneNumber)
+                                                    {
+                                                        <text> | </text>
+                                                        <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber)" title="Click to copy">
+                                                            @selectedAppointment.Contact.HeadOfHouse.Spouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber <i class="bi bi-clipboard"></i>
+                                                        </span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <text>No parent phone</text>
+                                                }
+                                            </small>
                                         }
                                         else
                                         {
@@ -293,22 +322,43 @@ else
                     {
                         <h6 class="mt-3">Message Templates</h6>
                         <div class="alert alert-info">
-                            <strong>@(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")</strong><br>
-                            @GetFormattedMessage(selectedAppointment)
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>@(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")</strong><br>
+                                    @GetFormattedMessage(selectedAppointment)
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="() => CopyMessageToClipboard(GetFormattedMessage(selectedAppointment))">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
                         </div>
                         
                         @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
                         {
                             <div class="alert alert-secondary">
-                                <strong>Adult Template (for reference):</strong><br>
-                                @GetAdultFormattedMessage(selectedAppointment)
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <strong>Adult Template (for reference):</strong><br>
+                                        @GetAdultFormattedMessage(selectedAppointment)
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => CopyMessageToClipboard(GetAdultFormattedMessage(selectedAppointment))">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
                             </div>
                         }
                         else if (selectedAppointment.Contact?.IsMinor == false && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
                         {
                             <div class="alert alert-secondary">
-                                <strong>Minor Template (for reference):</strong><br>
-                                @GetMinorFormattedMessage(selectedAppointment)
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <strong>Minor Template (for reference):</strong><br>
+                                        @GetMinorFormattedMessage(selectedAppointment)
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => CopyMessageToClipboard(GetMinorFormattedMessage(selectedAppointment))">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
                             </div>
                         }
                     }
@@ -327,11 +377,35 @@ else
                             Cancel Appointment
                         </button>
                     }
+                    @if (selectedAppointment.Status == AppointmentStatus.Cancelled)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="() => DeleteAppointment(selectedAppointment)">
+                            <i class="bi bi-trash"></i> Delete Appointment
+                        </button>
+                    }
                 </div>
             </div>
         </div>
     </div>
 }
+
+<style>
+    .clickable-phone {
+        cursor: pointer;
+        color: #0d6efd;
+        text-decoration: underline;
+    }
+    
+    .clickable-phone:hover {
+        color: #0a58ca;
+        text-decoration: underline;
+    }
+    
+    .clickable-phone i {
+        font-size: 0.875rem;
+        margin-left: 0.25rem;
+    }
+</style>
 
 @code {
     private List<Appointment> appointments = new();
@@ -357,6 +431,7 @@ else
         appointments = await DbContext.Appointments
             .Include(a => a.Contact)
                 .ThenInclude(c => c!.HeadOfHouse)
+                .ThenInclude(h => h!.Spouse)
             .Include(a => a.Leader)
             .Include(a => a.AppointmentType)
             .Where(a => a.UserId == currentUser.Id)
@@ -665,6 +740,32 @@ else
             1 => "(Parent)",
             _ => "(Both Parents)"
         };
+    }
+
+    private async Task DeleteAppointment(Appointment appointment)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to permanently delete this appointment with {appointment.Contact?.FullName}?");
+        
+        if (confirmed)
+        {
+            DbContext.Appointments.Remove(appointment);
+            await DbContext.SaveChangesAsync();
+            await LoadData();
+            CloseDetails();
+        }
+    }
+
+    private async Task CopyPhoneToClipboard(string phoneNumber)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", phoneNumber);
+        await JSRuntime.InvokeVoidAsync("alert", "Phone number copied to clipboard!");
+    }
+
+    private async Task CopyMessageToClipboard(string message)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", message);
+        await JSRuntime.InvokeVoidAsync("alert", "Message copied to clipboard!");
     }
 
 }

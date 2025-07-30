@@ -522,7 +522,7 @@ else
         if (isParentMessage)
         {
             // Use the parent notification message format
-            message = GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime);
+            message = SmsService.GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime);
         }
         else
         {
@@ -598,14 +598,4 @@ else
         return false;
     }
 
-    private string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime)
-    {
-        var parentSalutation = child.HeadOfHouse!.Gender == InterviewScheduler.Core.Enums.Gender.Male ? "Brother" : "Sister";
-        return $"Hello {parentSalutation} {child.HeadOfHouse.FullName}, " +
-               $"your child {child.FullName} has been scheduled for a {appointmentType.Name.ToLower()} " +
-               $"with {leader.Name} ({leader.Title}) " +
-               $"on {scheduledTime:dddd, MMMM dd} at {scheduledTime:h:mm tt}. " +
-               $"The appointment will last approximately {appointmentType.Duration} minutes. " +
-               $"Please ensure they are available at this time. Thank you!";
-    }
 }

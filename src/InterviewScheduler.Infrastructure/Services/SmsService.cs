@@ -169,7 +169,7 @@ public class SmsService : ISmsService
                $"Please confirm your attendance. Thank you!";
     }
 
-    private string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime)
+    public string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime)
     {
         // Use minor template if available, otherwise generate default parent notification
         if (!string.IsNullOrEmpty(appointmentType.MinorMessageTemplate))

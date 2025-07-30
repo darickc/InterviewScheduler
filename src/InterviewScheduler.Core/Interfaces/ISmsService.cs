@@ -6,6 +6,7 @@ public interface ISmsService
 {
     string GenerateSmsLink(string phoneNumber, string message);
     string FormatMessage(AppointmentType appointmentType, Contact contact, Leader leader, DateTime scheduledTime);
+    string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime);
     List<SmsMessage> GenerateAppointmentMessages(List<Contact> contacts, Leader leader, AppointmentType appointmentType, DateTime scheduledTime);
     string SanitizePhoneNumber(string phoneNumber);
     bool IsValidPhoneNumber(string phoneNumber);

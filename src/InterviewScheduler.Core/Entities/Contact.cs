@@ -31,9 +31,7 @@ public class Contact
     public string FullName => string.IsNullOrEmpty(MiddleName) 
         ? $"{LastName}, {FirstName}" 
         : $"{LastName}, {FirstName} {MiddleName}";
-    public string DisplayName => string.IsNullOrEmpty(MiddleName) 
-        ? $"{FirstName} {LastName}" 
-        : $"{FirstName} {MiddleName} {LastName}";
+    public string DisplayName => $"{FirstName} {LastName}";
     public int Age => CalculateAge();
     public bool IsMinor => Age <= 17;
     public string Salutation => Gender == Gender.Male ? "Brother" : "Sister";

@@ -195,14 +195,6 @@ public class GoogleCalendarService : ICalendarService
                 {
                     DateTimeDateTimeOffset = appointment.ScheduledTime.AddMinutes(appointment.AppointmentType?.Duration ?? 30),
                     TimeZone = TimeZoneInfo.Local.Id
-                },
-                Attendees = new[]
-                {
-                    new EventAttendee()
-                    {
-                        Email = appointment.Contact?.PhoneNumber + "@sms.example.com", // Placeholder - would need actual email
-                        DisplayName = appointment.Contact?.DisplayName
-                    }
                 }
             };
 

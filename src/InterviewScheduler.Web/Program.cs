@@ -5,7 +5,6 @@ using InterviewScheduler.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
-using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,9 +19,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
-// Add MudBlazor services
-builder.Services.AddMudServices();
 
 // Add MVC controllers for authentication endpoints
 builder.Services.AddControllers();

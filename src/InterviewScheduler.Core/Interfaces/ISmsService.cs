@@ -9,6 +9,7 @@ public interface ISmsService
     string GenerateParentNotificationMessage(Contact child, Leader leader, AppointmentType appointmentType, DateTime scheduledTime);
     List<SmsMessage> GenerateAppointmentMessages(List<Contact> contacts, Leader leader, AppointmentType appointmentType, DateTime scheduledTime);
     string SanitizePhoneNumber(string phoneNumber);
+    string SanitizePhoneNumbers(string phoneNumbers);
     bool IsValidPhoneNumber(string phoneNumber);
 }
 

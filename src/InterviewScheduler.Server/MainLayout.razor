@@ -1,3 +1,144 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime JSRuntime
 
-<main> @Body </main>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Mobile header -->
+    <header class="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 safe-area-top">
+        <div class="flex items-center justify-between p-4">
+            <button @onclick="ToggleSidebar" 
+                    class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Interview Scheduler</h1>
+            <div class="w-10"></div> <!-- Spacer for centering -->
+        </div>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="@(_sidebarOpen ? "fixed inset-0 z-40 lg:hidden" : "hidden")" @onclick="CloseSidebar">
+        <div class="fixed inset-0 bg-black opacity-50"></div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar @(_sidebarOpen ? "open" : "")">
+        <div class="flex flex-col h-full">
+            <!-- Desktop header -->
+            <div class="hidden lg:flex items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Interview Scheduler</h1>
+            </div>
+            
+            <!-- Navigation items -->
+            <div class="flex-1 px-4 py-6 space-y-2">
+                <NavLink href="/" class="sidebar-link" Match="NavLinkMatch.All">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span class="ml-3">Dashboard</span>
+                </NavLink>
+                
+                <NavLink href="/contacts" class="sidebar-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span class="ml-3">Contacts</span>
+                </NavLink>
+                
+                <NavLink href="/leaders" class="sidebar-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <span class="ml-3">Leaders</span>
+                </NavLink>
+                
+                <NavLink href="/appointments" class="sidebar-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="ml-3">Appointments</span>
+                </NavLink>
+                
+                <NavLink href="/appointment-types" class="sidebar-link">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                    </svg>
+                    <span class="ml-3">Appointment Types</span>
+                </NavLink>
+            </div>
+            
+            <!-- User info section -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <UserInfo />
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="container mx-auto px-4 py-6 max-w-7xl">
+            @Body
+        </div>
+    </main>
+
+    <!-- Bottom navigation for mobile -->
+    <nav class="bottom-nav lg:hidden">
+        <div class="flex justify-around">
+            <NavLink href="/" class="bottom-nav-item" Match="NavLinkMatch.All">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span>Home</span>
+            </NavLink>
+            
+            <NavLink href="/contacts" class="bottom-nav-item">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <span>Contacts</span>
+            </NavLink>
+            
+            <NavLink href="/appointments" class="bottom-nav-item">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span>Schedule</span>
+            </NavLink>
+            
+            <NavLink href="/leaders" class="bottom-nav-item">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+                <span>Leaders</span>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool _sidebarOpen = false;
+
+    private void ToggleSidebar()
+    {
+        _sidebarOpen = !_sidebarOpen;
+    }
+
+    private void CloseSidebar()
+    {
+        _sidebarOpen = false;
+    }
+}
+
+<style>
+.sidebar-link {
+    @apply flex items-center w-full p-3 text-sm font-medium text-gray-700 dark:text-gray-200;
+    @apply hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-150;
+    @apply focus:ring-2 focus:ring-primary-500 focus:outline-none;
+}
+
+.sidebar-link.active {
+    @apply bg-primary-50 dark:bg-primary-900 text-primary-700 dark:text-primary-300;
+    @apply border-r-2 border-primary-600;
+}
+</style>

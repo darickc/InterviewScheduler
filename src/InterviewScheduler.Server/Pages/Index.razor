@@ -1,3 +1,183 @@
 ﻿@page "/"
+@attribute [Authorize]
+@inject IUserService UserService
+@inject IServiceProvider ServiceProvider
+@using Microsoft.EntityFrameworkCore
+@using InterviewScheduler.Infrastructure.Data
 
-<h1>Hello, world!</h1>
+<PageTitle>Dashboard - Interview Scheduler</PageTitle>
+
+<div class="space-y-6">
+    <!-- Welcome Header -->
+    <div class="mobile-card">
+        <div class="flex items-center space-x-4">
+            <div class="flex-shrink-0">
+                <div class="w-12 h-12 bg-primary-600 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Welcome back!</h1>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Ready to schedule some interviews?</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="mobile-card text-center">
+            <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">@contactCount</div>
+            <div class="text-xs text-gray-600 dark:text-gray-400">Contacts</div>
+        </div>
+
+        <div class="mobile-card text-center">
+            <div class="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+            </div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">@leaderCount</div>
+            <div class="text-xs text-gray-600 dark:text-gray-400">Leaders</div>
+        </div>
+
+        <div class="mobile-card text-center">
+            <div class="w-8 h-8 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <svg class="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">@appointmentCount</div>
+            <div class="text-xs text-gray-600 dark:text-gray-400">Appointments</div>
+        </div>
+
+        <div class="mobile-card text-center">
+            <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                </svg>
+            </div>
+            <div class="text-2xl font-bold text-gray-900 dark:text-white">@appointmentTypeCount</div>
+            <div class="text-xs text-gray-600 dark:text-gray-400">Types</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mobile-card">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <a href="/appointments/wizard" class="btn-primary text-center">
+                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Schedule Interview
+            </a>
+            
+            <a href="/contacts" class="btn-secondary text-center">
+                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                Manage Contacts
+            </a>
+            
+            <a href="/appointments" class="btn-secondary text-center">
+                <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                View Calendar
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Appointments -->
+    @if (recentAppointments.Any())
+    {
+        <div class="mobile-card">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Appointments</h2>
+                <a href="/appointments" class="text-sm text-primary-600 hover:text-primary-800">View all</a>
+            </div>
+            <div class="space-y-3">
+                @foreach (var appointment in recentAppointments.Take(3))
+                {
+                    <div class="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-lg flex items-center justify-center">
+                                <span class="text-xs font-medium text-primary-600 dark:text-primary-400">
+                                    @appointment.AppointmentDateTime.ToString("MMM dd")
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                @appointment.Contact?.FullName
+                            </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                @appointment.AppointmentDateTime.ToString("h:mm tt") with @appointment.Leader?.Name
+                            </p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <span class="@GetStatusBadgeClass(appointment.Status) px-2 py-1 text-xs font-medium rounded-full">
+                                @appointment.Status
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int contactCount = 0;
+    private int leaderCount = 0;
+    private int appointmentCount = 0;
+    private int appointmentTypeCount = 0;
+    private List<Appointment> recentAppointments = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        // Get current user
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser != null)
+        {
+            var userId = currentUser.Id;
+            
+            // Load statistics
+            contactCount = await dbContext.Contacts.CountAsync(c => c.UserId == userId);
+            leaderCount = await dbContext.Leaders.CountAsync(l => l.UserId == userId);
+            appointmentCount = await dbContext.Appointments.CountAsync(a => a.UserId == userId);
+            appointmentTypeCount = await dbContext.AppointmentTypes.CountAsync(at => at.UserId == userId);
+            
+            // Load recent appointments
+            recentAppointments = await dbContext.Appointments
+                .Include(a => a.Contact)
+                .Include(a => a.Leader)
+                .Include(a => a.AppointmentType)
+                .Where(a => a.UserId == userId)
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(5)
+                .ToListAsync();
+        }
+    }
+
+    private string GetStatusBadgeClass(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Pending => "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+            AppointmentStatus.Confirmed => "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+            AppointmentStatus.Cancelled => "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+            _ => "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+        };
+    }
+}

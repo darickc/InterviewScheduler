@@ -7,24 +7,71 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Interview Scheduler - Mobile-first appointment scheduling system" />
+    <meta name="theme-color" content="#3B82F6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Interview Scheduler" />
+    
+    <title>Interview Scheduler</title>
     <base href="~/" />
-    <link href="css/site.css" rel="stylesheet" />
+    
+    <!-- Stylesheets -->
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="favicon.png" />
+    
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
-<body>
+<body class="bg-gray-50 dark:bg-gray-900">
     <component type="typeof(App)" render-mode="ServerPrerendered" />
 
-    <div id="blazor-error-ui">
+    <div id="blazor-error-ui" class="fixed bottom-4 right-4 bg-red-600 text-white p-4 rounded-lg shadow-lg z-50">
         <environment include="Staging,Production">
-            An error has occurred. This application may no longer respond until reloaded.
+            <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                <span>An error has occurred. Please reload the page.</span>
+            </div>
         </environment>
         <environment include="Development">
-            An unhandled exception has occurred. See browser dev tools for details.
+            <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                <span>An unhandled exception has occurred. See browser dev tools for details.</span>
+            </div>
         </environment>
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
+        <div class="flex items-center space-x-2 mt-2">
+            <a href="" class="reload bg-white text-red-600 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100">Reload</a>
+            <button class="dismiss ml-2 text-white hover:text-gray-200">🗙</button>
+        </div>
     </div>
 
+    <!-- Scripts -->
     <script src="_framework/blazor.server.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js"></script>
+    
+    <!-- Mobile optimizations -->
+    <script>
+        // Prevent zoom on form inputs in iOS
+        document.addEventListener('touchstart', function() {}, {passive: true});
+        
+        // Add touch feedback for better mobile UX
+        document.addEventListener('touchstart', function(e) {
+            e.target.style.opacity = '0.7';
+        });
+        
+        document.addEventListener('touchend', function(e) {
+            setTimeout(() => {
+                e.target.style.opacity = '';
+            }, 150);
+        });
+    </script>
 </body>
 </html>

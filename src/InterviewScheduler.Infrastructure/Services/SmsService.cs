@@ -18,11 +18,11 @@ public class SmsService : ISmsService
 
     public string GenerateSmsLink(string phoneNumber, string message)
     {
-        var sanitizedPhone = SanitizePhoneNumber(phoneNumber);
+        var sanitizedPhone = SanitizePhoneNumbers(phoneNumber);
         var encodedMessage = Uri.EscapeDataString(message);
         
         // Use the standard SMS URI scheme
-        // Format: sms:+1234567890?body=encoded_message
+        // Format: sms:+1234567890,+1234567891?body=encoded_message (for multiple recipients)
         return $"sms:{sanitizedPhone}?body={encodedMessage}";
     }
 
@@ -93,36 +93,41 @@ public class SmsService : ISmsService
             if (contact.IsMinor && contact.HeadOfHouse != null)
             {
                 var parentMessage = GenerateParentNotificationMessage(contact, leader, appointmentType, scheduledTime);
+                var parentPhoneNumbers = new List<string>();
+                var parentNames = new List<string>();
 
-                // Send to head of house if they have a valid phone number and it's different from the contact's
+                // Add head of house phone if valid and different from contact's
                 if (IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber) && 
                     contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
                 {
-                    messages.Add(new SmsMessage
-                    {
-                        ContactName = contact.HeadOfHouse.FullName,
-                        PhoneNumber = contact.HeadOfHouse.PhoneNumber!,
-                        Message = parentMessage,
-                        SmsLink = GenerateSmsLink(contact.HeadOfHouse.PhoneNumber!, parentMessage),
-                        IsMinorNotification = true,
-                        ParentName = contact.HeadOfHouse.FullName
-                    });
+                    parentPhoneNumbers.Add(contact.HeadOfHouse.PhoneNumber!);
+                    parentNames.Add(contact.HeadOfHouse.FullName);
                 }
 
-                // Send to spouse of head of house if they exist and have a valid phone number
+                // Add spouse phone if valid and not duplicate
                 if (contact.HeadOfHouse.Spouse != null && 
                     IsValidPhoneNumber(contact.HeadOfHouse.Spouse.PhoneNumber) &&
                     contact.HeadOfHouse.Spouse.PhoneNumber != contact.PhoneNumber &&
-                    contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+                    !parentPhoneNumbers.Contains(contact.HeadOfHouse.Spouse.PhoneNumber!))
                 {
+                    parentPhoneNumbers.Add(contact.HeadOfHouse.Spouse.PhoneNumber!);
+                    parentNames.Add(contact.HeadOfHouse.Spouse.FullName);
+                }
+
+                // Create single message for all parents if any valid phone numbers found
+                if (parentPhoneNumbers.Any())
+                {
+                    var combinedPhoneNumbers = string.Join(",", parentPhoneNumbers);
+                    var combinedParentNames = string.Join(" & ", parentNames);
+
                     messages.Add(new SmsMessage
                     {
-                        ContactName = contact.HeadOfHouse.Spouse.FullName,
-                        PhoneNumber = contact.HeadOfHouse.Spouse.PhoneNumber!,
+                        ContactName = combinedParentNames,
+                        PhoneNumber = combinedPhoneNumbers,
                         Message = parentMessage,
-                        SmsLink = GenerateSmsLink(contact.HeadOfHouse.Spouse.PhoneNumber!, parentMessage),
+                        SmsLink = GenerateSmsLink(combinedPhoneNumbers, parentMessage),
                         IsMinorNotification = true,
-                        ParentName = contact.HeadOfHouse.Spouse.FullName
+                        ParentName = combinedParentNames
                     });
                 }
             }
@@ -163,6 +168,20 @@ public class SmsService : ISmsService
         
         // Default: try to add +1 for US
         return "+1" + Regex.Replace(cleaned, @"[^\d]", "");
+    }
+
+    public string SanitizePhoneNumbers(string phoneNumbers)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumbers))
+            return "";
+
+        // Split by comma or semicolon, sanitize each number, then join with comma
+        var numbers = phoneNumbers.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                 .Select(num => SanitizePhoneNumber(num.Trim()))
+                                 .Where(num => !string.IsNullOrEmpty(num))
+                                 .Distinct(); // Remove duplicates
+
+        return string.Join(",", numbers);
     }
 
     public bool IsValidPhoneNumber(string? phoneNumber)

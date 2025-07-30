@@ -104,9 +104,9 @@
                                             {
                                                 @appointment.Contact.PhoneNumber
                                             }
-                                            else if (appointment.Contact?.IsMinor == true && appointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+                                            else if (appointment.Contact?.IsMinor == true && appointment.Contact?.HeadOfHouse != null)
                                             {
-                                                <span>Parent: @appointment.Contact.HeadOfHouse.PhoneNumber</span>
+                                                @GetParentPhoneDisplay(appointment.Contact)
                                             }
                                             else
                                             {
@@ -160,7 +160,7 @@
                                             @if (HasValidPhoneForSms(appointment))
                                             {
                                                 <button class="btn btn-outline-info" @onclick="() => SendSMSReminder(appointment)">
-                                                    <i class="bi bi-phone"></i> SMS @(appointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(appointment.Contact?.HeadOfHouse?.PhoneNumber) ? "(Parent)" : "")
+                                                    <i class="bi bi-phone"></i> SMS @GetSmsButtonLabel(appointment.Contact)
                                                 </button>
                                             }
                                         </div>
@@ -224,7 +224,7 @@ else
                                         else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
                                         {
                                             <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to parent: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber</small>
+                                            <br><small class="text-info">SMS will be sent to: @GetParentPhoneDisplay(selectedAppointment.Contact)</small>
                                         }
                                         else
                                         {
@@ -503,15 +503,36 @@ else
         if (appointment.Contact == null || appointment.AppointmentType == null || appointment.Leader == null)
             return;
 
-        // For minors, send SMS to parent if available
         var targetPhoneNumber = appointment.Contact.PhoneNumber;
         var isParentMessage = false;
         
-        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
-            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+        // For minors, collect all parent phone numbers
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null)
         {
-            targetPhoneNumber = appointment.Contact.HeadOfHouse.PhoneNumber;
-            isParentMessage = true;
+            var parentPhoneNumbers = new List<string>();
+            
+            // Add head of house phone if valid and different from contact's
+            if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber) && 
+                appointment.Contact.HeadOfHouse.PhoneNumber != appointment.Contact.PhoneNumber)
+            {
+                parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.PhoneNumber);
+            }
+
+            // Add spouse phone if valid and not duplicate
+            if (appointment.Contact.HeadOfHouse.Spouse != null && 
+                !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                appointment.Contact.HeadOfHouse.Spouse.PhoneNumber != appointment.Contact.PhoneNumber &&
+                !parentPhoneNumbers.Contains(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber))
+            {
+                parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber);
+            }
+
+            // Use combined parent phone numbers if any found
+            if (parentPhoneNumbers.Any())
+            {
+                targetPhoneNumber = string.Join(",", parentPhoneNumbers);
+                isParentMessage = true;
+            }
         }
 
         if (string.IsNullOrEmpty(targetPhoneNumber))
@@ -596,6 +617,54 @@ else
             return true;
 
         return false;
+    }
+
+    private string GetParentPhoneDisplay(Contact contact)
+    {
+        if (contact.HeadOfHouse == null)
+            return "No parent phone";
+
+        var parentPhones = new List<string>();
+
+        // Add head of house phone
+        if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+        {
+            parentPhones.Add($"{contact.HeadOfHouse.FirstName}: {contact.HeadOfHouse.PhoneNumber}");
+        }
+
+        // Add spouse phone if available and different
+        if (contact.HeadOfHouse.Spouse != null && 
+            !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
+            contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+        {
+            parentPhones.Add($"{contact.HeadOfHouse.Spouse.FirstName}: {contact.HeadOfHouse.Spouse.PhoneNumber}");
+        }
+
+        return parentPhones.Any() ? string.Join(" | ", parentPhones) : "No parent phone";
+    }
+
+    private string GetSmsButtonLabel(Contact? contact)
+    {
+        if (contact == null || !contact.IsMinor || contact.HeadOfHouse == null)
+            return "";
+
+        var parentCount = 0;
+        
+        // Count valid parent phone numbers
+        if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+            parentCount++;
+
+        if (contact.HeadOfHouse.Spouse != null && 
+            !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
+            contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+            parentCount++;
+
+        return parentCount switch
+        {
+            0 => "",
+            1 => "(Parent)",
+            _ => "(Both Parents)"
+        };
     }
 
 }

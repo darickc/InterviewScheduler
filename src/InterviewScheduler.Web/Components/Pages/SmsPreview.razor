@@ -83,7 +83,8 @@
                 <div class="mb-3">
                     <label class="form-label">Test Phone Number</label>
                     <input type="text" class="form-control" @bind="testPhoneNumber" @bind:event="oninput" 
-                           placeholder="Enter phone number to validate" />
+                           placeholder="Enter phone number or multiple numbers separated by comma" />
+                    <small class="form-text text-muted">You can test multiple phone numbers by separating them with commas (e.g., "555-1234, 555-5678")</small>
                 </div>
 
                 @if (!string.IsNullOrWhiteSpace(testPhoneNumber))
@@ -93,7 +94,7 @@
                             <strong>Original:</strong> @testPhoneNumber
                         </div>
                         <div class="col-md-6">
-                            <strong>Sanitized:</strong> @SmsService.SanitizePhoneNumber(testPhoneNumber)
+                            <strong>Sanitized:</strong> @SmsService.SanitizePhoneNumbers(testPhoneNumber)
                         </div>
                     </div>
                     <div class="mt-2">
@@ -182,9 +183,11 @@
                         <h5>Supported Formats</h5>
                         <ul>
                             <li><code>sms:+1234567890?body=message</code> - Standard SMS URI</li>
+                            <li><code>sms:+1234567890,+1234567891?body=message</code> - Multiple recipients</li>
                             <li><code>sms:+1234567890&body=message</code> - Alternative format</li>
                             <li>Works with most mobile devices and SMS apps</li>
                             <li>Message content is URL-encoded for safety</li>
+                            <li>Multiple recipients are comma-separated</li>
                         </ul>
                     </div>
                     <div class="col-md-6">

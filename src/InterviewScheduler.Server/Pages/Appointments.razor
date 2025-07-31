@@ -1,0 +1,1108 @@
+@page "/appointments"
+@attribute [Authorize]
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Enums
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ICalendarService CalendarService
+@inject ISmsService SmsService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IUserService UserService
+
+<PageTitle>Appointments</PageTitle>
+
+<!-- Mobile Header -->
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Appointments</h1>
+    
+    <!-- Desktop Schedule Button -->
+    <button 
+        type="button"
+        class="hidden md:inline-flex btn-primary"
+        @onclick="NavigateToNewAppointment">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Schedule New
+    </button>
+</div>
+
+<!-- Status Filter Tabs (Mobile-First) -->
+<div class="mb-6">
+    <div class="flex flex-wrap gap-2 sm:gap-3">
+        <button 
+            type="button"
+            class="@GetFilterButtonClass("all")"
+            @onclick='() => SetFilter("all")'>
+            All (@appointments.Count)
+        </button>
+        <button 
+            type="button"
+            class="@GetFilterButtonClass("pending")"
+            @onclick='() => SetFilter("pending")'>
+            Pending (@appointments.Count(a => a.Status == AppointmentStatus.Pending))
+        </button>
+        <button 
+            type="button"
+            class="@GetFilterButtonClass("confirmed")"
+            @onclick='() => SetFilter("confirmed")'>
+            Confirmed (@appointments.Count(a => a.Status == AppointmentStatus.Confirmed))
+        </button>
+        <button 
+            type="button"
+            class="@GetFilterButtonClass("cancelled")"
+            @onclick='() => SetFilter("cancelled")'>
+            Cancelled (@appointments.Count(a => a.Status == AppointmentStatus.Cancelled))
+        </button>
+    </div>
+</div>
+
+<!-- Advanced Filters (Collapsible on Mobile) -->
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <button 
+        type="button"
+        class="w-full flex items-center justify-between p-4 text-left focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg"
+        @onclick="ToggleFilters">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z"/>
+            </svg>
+            Filters @(HasActiveFilters() ? "(Active)" : "")
+        </span>
+        <svg class="w-4 h-4 text-gray-400 transition-transform duration-200 @(showFilters ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+    </button>
+    
+    @if (showFilters)
+    {
+        <div class="px-4 pb-4 space-y-4 border-t border-gray-200 dark:border-gray-700">
+            <!-- Search -->
+            <div>
+                <label for="search" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                <input 
+                    id="search"
+                    type="text" 
+                    class="form-input text-sm"
+                    placeholder="Search appointments..."
+                    @bind="searchTerm" 
+                    @bind:event="oninput" />
+            </div>
+            
+            <!-- Leader Filter -->
+            <div>
+                <label for="leader-filter" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Leader</label>
+                <select 
+                    id="leader-filter"
+                    class="form-select text-sm" 
+                    @bind="leaderFilter">
+                    <option value="">All Leaders</option>
+                    @foreach (var leader in leaders)
+                    {
+                        <option value="@leader.Id">@leader.Name (@leader.Title)</option>
+                    }
+                </select>
+            </div>
+            
+            <!-- Date Filter -->
+            <div>
+                <label for="date-filter" class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date Range</label>
+                <select 
+                    id="date-filter"
+                    class="form-select text-sm" 
+                    @bind="dateFilter">
+                    <option value="">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="past">Past</option>
+                </select>
+            </div>
+            
+            <!-- Clear Filters -->
+            @if (HasActiveFilters())
+            {
+                <button 
+                    type="button"
+                    class="btn-secondary w-full text-sm"
+                    @onclick="ClearFilters">
+                    Clear All Filters
+                </button>
+            }
+        </div>
+    }
+</div>
+
+<!-- Appointments List -->
+@if (isLoading)
+{
+    <div class="flex justify-center items-center py-12">
+        <div class="loading-spinner w-8 h-8 text-primary-600"></div>
+        <span class="ml-3 text-gray-600 dark:text-gray-400">Loading appointments...</span>
+    </div>
+}
+else if (filteredAppointments.Any())
+{
+    <div class="space-y-6">
+        @foreach (var dayGroup in filteredAppointments.GroupBy(a => a.ScheduledTime.Date).OrderBy(g => g.Key))
+        {
+            <div class="space-y-3">
+                <!-- Date Header -->
+                <div class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 py-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        @GetDateLabel(dayGroup.Key)
+                        <span class="ml-auto text-sm font-normal text-gray-500 dark:text-gray-400">
+                            @dayGroup.Count() appointment@(dayGroup.Count() == 1 ? "" : "s")
+                        </span>
+                    </h3>
+                </div>
+                
+                <!-- Appointment Cards -->
+                <div class="space-y-3">
+                    @foreach (var appointment in dayGroup.OrderBy(a => a.ScheduledTime))
+                    {
+                        <div class="@GetCardClass(appointment) bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <!-- Main Card Content -->
+                            <div class="p-4 cursor-pointer" @onclick="() => ToggleCardExpansion(appointment.Id)">
+                                <div class="flex items-start justify-between">
+                                    <!-- Left Side - Time and Contact -->
+                                    <div class="flex-1 min-w-0">
+                                        <!-- Time -->
+                                        <div class="flex items-center mb-2">
+                                            <div class="text-lg font-bold text-gray-900 dark:text-white">
+                                                @appointment.ScheduledTime.ToString("h:mm tt")
+                                            </div>
+                                            <div class="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                                                @appointment.AppointmentType?.Duration min
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Contact Info -->
+                                        <div class="mb-2">
+                                            <div class="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                                                @appointment.Contact?.FullName
+                                                @if (appointment.Contact?.IsMinor == true)
+                                                {
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 ml-2">
+                                                        Minor
+                                                    </span>
+                                                }
+                                            </div>
+                                            <div class="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
+                                                @if (!string.IsNullOrEmpty(appointment.Contact?.PhoneNumber))
+                                                {
+                                                    <span>@appointment.Contact.PhoneNumber</span>
+                                                }
+                                                else if (appointment.Contact?.IsMinor == true && appointment.Contact?.HeadOfHouse != null)
+                                                {
+                                                    <span>@GetParentPhoneDisplay(appointment.Contact)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-gray-400">No phone</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Leader and Type -->
+                                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                                            <span class="font-medium">@appointment.Leader?.Name</span>
+                                            <span class="mx-2">•</span>
+                                            <span>@appointment.AppointmentType?.Name</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Right Side - Status and Expand Button -->
+                                    <div class="flex flex-col items-end space-y-2">
+                                        <!-- Status Badge -->
+                                        <div class="@GetStatusBadgeClass(appointment.Status)">
+                                            @GetStatusText(appointment.Status)
+                                        </div>
+                                        
+                                        <!-- Expand Indicator -->
+                                        <svg class="w-5 h-5 text-gray-400 transition-transform duration-200 @(expandedCards.Contains(appointment.Id) ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Expanded Actions -->
+                            @if (expandedCards.Contains(appointment.Id))
+                            {
+                                <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                                        <!-- View Details -->
+                                        <button 
+                                            type="button"
+                                            class="btn-ghost text-sm justify-center"
+                                            @onclick="() => ViewDetails(appointment)"
+                                            @onclick:stopPropagation="true">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            </svg>
+                                            Details
+                                        </button>
+                                        
+                                        <!-- Confirm (if pending) -->
+                                        @if (appointment.Status == AppointmentStatus.Pending)
+                                        {
+                                            <button 
+                                                type="button"
+                                                class="btn-ghost text-sm justify-center text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
+                                                @onclick="() => ConfirmAppointment(appointment)"
+                                                @onclick:stopPropagation="true">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                Confirm
+                                            </button>
+                                        }
+                                        
+                                        <!-- Cancel (if not cancelled) -->
+                                        @if (appointment.Status != AppointmentStatus.Cancelled)
+                                        {
+                                            <button 
+                                                type="button"
+                                                class="btn-ghost text-sm justify-center text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                                                @onclick="() => CancelAppointment(appointment)"
+                                                @onclick:stopPropagation="true">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                                Cancel
+                                            </button>
+                                        }
+                                        
+                                        <!-- SMS (if has valid phone) -->
+                                        @if (HasValidPhoneForSms(appointment))
+                                        {
+                                            <button 
+                                                type="button"
+                                                class="btn-ghost text-sm justify-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20"
+                                                @onclick="() => SendSMSReminder(appointment)"
+                                                @onclick:stopPropagation="true">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                                </svg>
+                                                SMS @GetSmsButtonLabel(appointment.Contact)
+                                            </button>
+                                        }
+                                        
+                                        <!-- Delete (if cancelled) -->
+                                        @if (appointment.Status == AppointmentStatus.Cancelled)
+                                        {
+                                            <button 
+                                                type="button"
+                                                class="btn-ghost text-sm justify-center text-gray-600 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-700"
+                                                @onclick="() => DeleteAppointment(appointment)"
+                                                @onclick:stopPropagation="true">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                </svg>
+                                                Delete
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <!-- Empty State -->
+    <div class="text-center py-12">
+        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            @if (viewFilter == "all")
+            {
+                <text>No Appointments Found</text>
+            }
+            else
+            {
+                <text>No @viewFilter.ToUpper() Appointments</text>
+            }
+        </h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+            @if (viewFilter == "all")
+            {
+                <text>You haven't scheduled any appointments yet. Get started by creating your first appointment.</text>
+            }
+            else
+            {
+                <text>No @viewFilter appointments found. Try adjusting your filters or check a different status.</text>
+            }
+        </p>
+        <button 
+            type="button"
+            class="btn-primary"
+            @onclick="NavigateToNewAppointment">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Schedule Your First Appointment
+        </button>
+    </div>
+}
+
+<!-- Floating Action Button (Mobile Only) -->
+<button 
+    type="button"
+    class="md:hidden fixed bottom-24 right-6 z-40 w-14 h-14 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-full shadow-lg focus:outline-none focus:ring-4 focus:ring-primary-300 dark:focus:ring-primary-800 transition-all duration-200 active:scale-95"
+    @onclick="NavigateToNewAppointment"
+    aria-label="Schedule New Appointment">
+    <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    </svg>
+</button>
+
+<!-- Details Modal -->
+@if (selectedAppointment != null)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4" @onclick="CloseDetailsModal" @onclick:stopPropagation="false">
+        <div class="bg-white dark:bg-gray-800 rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden" @onclick:stopPropagation="true">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    Appointment Details
+                </h2>
+                <button 
+                    type="button"
+                    class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    @onclick="CloseDetailsModal">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto max-h-[60vh]">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Contact Information -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Contact Information</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Name:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.Contact?.FullName</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-start">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Phone:</span>
+                                <div class="text-right">
+                                    @if (!string.IsNullOrEmpty(selectedAppointment.Contact?.PhoneNumber))
+                                    {
+                                        <button 
+                                            type="button"
+                                            class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                                            @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.PhoneNumber!)"
+                                            title="Click to copy">
+                                            @selectedAppointment.Contact.PhoneNumber
+                                            <svg class="w-3 h-3 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                            </svg>
+                                        </button>
+                                    }
+                                    else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
+                                    {
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                                            <div>No direct phone</div>
+                                            <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                                SMS will be sent to:
+                                                @if (!string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
+                                                {
+                                                    <br>
+                                                    <button 
+                                                        type="button"
+                                                        class="hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                                                        @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)"
+                                                        title="Click to copy">
+                                                        @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber
+                                                    </button>
+                                                    @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null && 
+                                                        !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                                                        selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber != selectedAppointment.Contact.HeadOfHouse.PhoneNumber)
+                                                    {
+                                                        <br>
+                                                        <button 
+                                                            type="button"
+                                                            class="hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                                                            @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber!)"
+                                                            title="Click to copy">
+                                                            @selectedAppointment.Contact.HeadOfHouse.Spouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber
+                                                        </button>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <text> No parent phone</text>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-gray-500 dark:text-gray-400">No phone number</span>
+                                    }
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Age:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">
+                                    @selectedAppointment.Contact?.Age @(selectedAppointment.Contact?.IsMinor == true ? "(Minor)" : "")
+                                </span>
+                            </div>
+                            
+                            @if (selectedAppointment.Contact?.HeadOfHouse != null)
+                            {
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Head of House:</span>
+                                    <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.Contact.HeadOfHouse.FullName</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- Appointment Information -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Appointment Information</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Leader:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.Leader?.Name (@selectedAppointment.Leader?.Title)</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Type:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.AppointmentType?.Name</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.ScheduledTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Duration:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.AppointmentType?.Duration minutes</span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
+                                <span class="@GetStatusBadgeClass(selectedAppointment.Status)">
+                                    @GetStatusText(selectedAppointment.Status)
+                                </span>
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Created:</span>
+                                <span class="text-sm text-gray-900 dark:text-white">@selectedAppointment.CreatedDate.ToString("MMM dd, yyyy 'at' h:mm tt")</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Message Templates -->
+                @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
+                {
+                    <div class="mt-6">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Message Templates</h3>
+                        
+                        <!-- Primary Template -->
+                        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <h4 class="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                                        @(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")
+                                    </h4>
+                                    <p class="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">@GetFormattedMessage(selectedAppointment)</p>
+                                </div>
+                                <button 
+                                    type="button"
+                                    class="ml-4 p-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    @onclick="() => CopyMessageToClipboard(GetFormattedMessage(selectedAppointment))"
+                                    title="Copy message">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Alternative Template -->
+                        @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                        {
+                            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Adult Template (for reference):</h4>
+                                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">@GetAdultFormattedMessage(selectedAppointment)</p>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        class="ml-4 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                        @onclick="() => CopyMessageToClipboard(GetAdultFormattedMessage(selectedAppointment))"
+                                        title="Copy message">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else if (selectedAppointment.Contact?.IsMinor == false && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                        {
+                            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Minor Template (for reference):</h4>
+                                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">@GetMinorFormattedMessage(selectedAppointment)</p>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        class="ml-4 p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                        @onclick="() => CopyMessageToClipboard(GetMinorFormattedMessage(selectedAppointment))"
+                                        title="Copy message">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="flex flex-col sm:flex-row gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                <button 
+                    type="button"
+                    class="btn-secondary order-2 sm:order-1"
+                    @onclick="CloseDetailsModal">
+                    Close
+                </button>
+                
+                <div class="flex flex-col sm:flex-row gap-3 order-1 sm:order-2 sm:ml-auto">
+                    @if (selectedAppointment.Status == AppointmentStatus.Pending)
+                    {
+                        <button 
+                            type="button"
+                            class="btn-primary bg-green-600 hover:bg-green-700 active:bg-green-800 focus:ring-green-500"
+                            @onclick="() => ConfirmAppointment(selectedAppointment)">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            Confirm Appointment
+                        </button>
+                    }
+                    
+                    @if (selectedAppointment.Status != AppointmentStatus.Cancelled)
+                    {
+                        <button 
+                            type="button"
+                            class="btn-danger"
+                            @onclick="() => CancelAppointment(selectedAppointment)">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            Cancel Appointment
+                        </button>
+                    }
+                    
+                    @if (selectedAppointment.Status == AppointmentStatus.Cancelled)
+                    {
+                        <button 
+                            type="button"
+                            class="btn-secondary"
+                            @onclick="() => DeleteAppointment(selectedAppointment)">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Delete Appointment
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Appointment> appointments = new();
+    private List<Leader> leaders = new();
+    private Appointment? selectedAppointment;
+    private bool isLoading = true;
+    private bool showFilters = false;
+    private HashSet<int> expandedCards = new();
+    
+    // Filters
+    private string viewFilter = "all";
+    private string searchTerm = "";
+    private string leaderFilter = "";
+    private string dateFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var currentUser = await UserService.GetCurrentUserAsync();
+            if (currentUser == null) return;
+            
+            appointments = await DbContext.Appointments
+                .Include(a => a.Contact)
+                    .ThenInclude(c => c!.HeadOfHouse)
+                    .ThenInclude(h => h!.Spouse)
+                .Include(a => a.Leader)
+                .Include(a => a.AppointmentType)
+                .Where(a => a.UserId == currentUser.Id)
+                .OrderBy(a => a.ScheduledTime)
+                .ToListAsync();
+
+            leaders = await DbContext.Leaders
+                .Where(l => l.IsActive && l.UserId == currentUser.Id)
+                .OrderBy(l => l.Title)
+                .ToListAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private IEnumerable<Appointment> filteredAppointments
+    {
+        get
+        {
+            var filtered = appointments.AsEnumerable();
+
+            // Status filter
+            if (viewFilter != "all")
+            {
+                var status = viewFilter switch
+                {
+                    "pending" => AppointmentStatus.Pending,
+                    "confirmed" => AppointmentStatus.Confirmed,
+                    "cancelled" => AppointmentStatus.Cancelled,
+                    _ => AppointmentStatus.Pending
+                };
+                filtered = filtered.Where(a => a.Status == status);
+            }
+
+            // Text search
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filtered = filtered.Where(a =>
+                    (a.Contact?.FirstName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (!string.IsNullOrEmpty(a.Contact?.MiddleName) && a.Contact.MiddleName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    (a.Contact?.LastName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (a.Contact?.PhoneNumber?.Contains(searchTerm) == true) ||
+                    (a.Leader?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true) ||
+                    (a.AppointmentType?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true));
+            }
+
+            // Leader filter
+            if (!string.IsNullOrWhiteSpace(leaderFilter) && int.TryParse(leaderFilter, out var leaderId))
+            {
+                filtered = filtered.Where(a => a.LeaderId == leaderId);
+            }
+
+            // Date filter
+            if (!string.IsNullOrWhiteSpace(dateFilter))
+            {
+                var today = DateTime.Today;
+                filtered = dateFilter switch
+                {
+                    "today" => filtered.Where(a => a.ScheduledTime.Date == today),
+                    "week" => filtered.Where(a => a.ScheduledTime.Date >= today && a.ScheduledTime.Date <= today.AddDays(7)),
+                    "month" => filtered.Where(a => a.ScheduledTime.Date >= today && a.ScheduledTime.Date <= today.AddDays(30)),
+                    "upcoming" => filtered.Where(a => a.ScheduledTime.Date >= today),
+                    "past" => filtered.Where(a => a.ScheduledTime.Date < today),
+                    _ => filtered
+                };
+            }
+
+            return filtered.OrderBy(a => a.ScheduledTime);
+        }
+    }
+
+    private void NavigateToNewAppointment()
+    {
+        Navigation.NavigateTo("/appointments/new");
+    }
+
+    private void SetFilter(string filter)
+    {
+        viewFilter = filter;
+        expandedCards.Clear(); // Collapse all cards when filter changes
+    }
+
+    private void ToggleFilters()
+    {
+        showFilters = !showFilters;
+    }
+
+    private bool HasActiveFilters()
+    {
+        return !string.IsNullOrWhiteSpace(searchTerm) ||
+               !string.IsNullOrWhiteSpace(leaderFilter) ||
+               !string.IsNullOrWhiteSpace(dateFilter);
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        leaderFilter = "";
+        dateFilter = "";
+        viewFilter = "all";
+    }
+
+    private void ToggleCardExpansion(int appointmentId)
+    {
+        if (expandedCards.Contains(appointmentId))
+        {
+            expandedCards.Remove(appointmentId);
+        }
+        else
+        {
+            expandedCards.Add(appointmentId);
+        }
+    }
+
+    private string GetFilterButtonClass(string filter)
+    {
+        var baseClass = "touch-target px-4 py-2 text-sm font-medium rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500";
+        
+        if (viewFilter == filter)
+        {
+            return $"{baseClass} bg-primary-600 text-white border-primary-600 hover:bg-primary-700";
+        }
+        
+        return $"{baseClass} bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700";
+    }
+
+    private string GetCardClass(Appointment appointment)
+    {
+        var baseClass = "relative";
+        
+        // Add colored left border based on status
+        var borderClass = appointment.Status switch
+        {
+            AppointmentStatus.Pending => "border-l-4 border-l-yellow-400",
+            AppointmentStatus.Confirmed => "border-l-4 border-l-green-400",
+            AppointmentStatus.Cancelled => "border-l-4 border-l-red-400",
+            _ => "border-l-4 border-l-gray-300"
+        };
+        
+        var bgClass = appointment.ScheduledTime.Date < DateTime.Today 
+            ? "bg-gray-50 dark:bg-gray-800/50" 
+            : "";
+        
+        return $"{baseClass} {borderClass} {bgClass}";
+    }
+
+    private string GetStatusBadgeClass(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Pending => "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+            AppointmentStatus.Confirmed => "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+            AppointmentStatus.Cancelled => "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+            _ => "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+        };
+    }
+
+    private string GetStatusText(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Pending => "Pending",
+            AppointmentStatus.Confirmed => "Confirmed",
+            AppointmentStatus.Cancelled => "Cancelled",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetDateLabel(DateTime date)
+    {
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        var yesterday = today.AddDays(-1);
+        
+        if (date.Date == today)
+            return "Today";
+        else if (date.Date == tomorrow)
+            return "Tomorrow";
+        else if (date.Date == yesterday)
+            return "Yesterday";
+        else
+            return date.ToString("dddd, MMMM dd, yyyy");
+    }
+
+    private async Task ConfirmAppointment(Appointment appointment)
+    {
+        appointment.Status = AppointmentStatus.Confirmed;
+        await DbContext.SaveChangesAsync();
+        await LoadData();
+        CloseDetailsModal();
+        expandedCards.Remove(appointment.Id);
+    }
+
+    private async Task CancelAppointment(Appointment appointment)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to cancel the appointment with {appointment.Contact?.FullName}?");
+        
+        if (confirmed)
+        {
+            appointment.Status = AppointmentStatus.Cancelled;
+            
+            // Try to delete from Google Calendar
+            if (!string.IsNullOrEmpty(appointment.GoogleEventId) && !string.IsNullOrEmpty(appointment.Leader?.GoogleCalendarId))
+            {
+                try
+                {
+                    await CalendarService.DeleteEventAsync(appointment.Leader.GoogleCalendarId, appointment.GoogleEventId);
+                }
+                catch
+                {
+                    // Calendar deletion failed, but appointment is still cancelled
+                }
+            }
+            
+            await DbContext.SaveChangesAsync();
+            await LoadData();
+            CloseDetailsModal();
+            expandedCards.Remove(appointment.Id);
+        }
+    }
+
+    private async Task DeleteAppointment(Appointment appointment)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to permanently delete this appointment with {appointment.Contact?.FullName}?");
+        
+        if (confirmed)
+        {
+            DbContext.Appointments.Remove(appointment);
+            await DbContext.SaveChangesAsync();
+            await LoadData();
+            CloseDetailsModal();
+            expandedCards.Remove(appointment.Id);
+        }
+    }
+
+    private void ViewDetails(Appointment appointment)
+    {
+        selectedAppointment = appointment;
+    }
+
+    private void CloseDetailsModal()
+    {
+        selectedAppointment = null;
+    }
+
+    private async Task SendSMSReminder(Appointment appointment)
+    {
+        if (appointment.Contact == null || appointment.AppointmentType == null || appointment.Leader == null)
+            return;
+
+        var targetPhoneNumber = appointment.Contact.PhoneNumber;
+        var isParentMessage = false;
+        
+        // For minors, collect all parent phone numbers
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null)
+        {
+            var parentPhoneNumbers = new List<string>();
+            
+            // Add head of house phone if valid and different from contact's
+            if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber) && 
+                appointment.Contact.HeadOfHouse.PhoneNumber != appointment.Contact.PhoneNumber)
+            {
+                parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.PhoneNumber);
+            }
+
+            // Add spouse phone if valid and not duplicate
+            if (appointment.Contact.HeadOfHouse.Spouse != null && 
+                !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                appointment.Contact.HeadOfHouse.Spouse.PhoneNumber != appointment.Contact.PhoneNumber &&
+                !parentPhoneNumbers.Contains(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber))
+            {
+                parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber);
+            }
+
+            // Use combined parent phone numbers if any found
+            if (parentPhoneNumbers.Any())
+            {
+                targetPhoneNumber = string.Join(",", parentPhoneNumbers);
+                isParentMessage = true;
+            }
+        }
+
+        if (string.IsNullOrEmpty(targetPhoneNumber))
+            return;
+
+        // Use appropriate message format
+        string message;
+        if (isParentMessage)
+        {
+            // Use the parent notification message format
+            message = SmsService.GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime);
+        }
+        else
+        {
+            // Use regular message format
+            message = SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
+        }
+
+        var smsUrl = SmsService.GenerateSmsLink(targetPhoneNumber, message);
+        
+        await JSRuntime.InvokeVoidAsync("open", smsUrl, "_blank");
+    }
+
+    private string GetFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        return SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
+    }
+    
+    private string GetAdultFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        // Force use of adult template by creating a temp contact that's not a minor
+        var adultContact = new Contact
+        {
+            FirstName = appointment.Contact.FirstName,
+            LastName = appointment.Contact.LastName,
+            Gender = appointment.Contact.Gender,
+            BirthDate = DateTime.Today.AddYears(-25), // Set to adult age (25 years old)
+            PhoneNumber = appointment.Contact.PhoneNumber,
+            HeadOfHouse = appointment.Contact.HeadOfHouse
+        };
+
+        return SmsService.FormatMessage(appointment.AppointmentType, adultContact, appointment.Leader, appointment.ScheduledTime);
+    }
+    
+    private string GetMinorFormattedMessage(Appointment appointment)
+    {
+        if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
+            return "";
+
+        // Force use of minor template by creating a temp contact that's a minor
+        var minorContact = new Contact
+        {
+            FirstName = appointment.Contact.FirstName,
+            LastName = appointment.Contact.LastName,
+            Gender = appointment.Contact.Gender,
+            BirthDate = DateTime.Today.AddYears(-16), // Set to minor age (16 years old)
+            PhoneNumber = appointment.Contact.PhoneNumber,
+            HeadOfHouse = appointment.Contact.HeadOfHouse ?? appointment.Contact
+        };
+
+        return SmsService.FormatMessage(appointment.AppointmentType, minorContact, appointment.Leader, appointment.ScheduledTime);
+    }
+
+    private bool HasValidPhoneForSms(Appointment appointment)
+    {
+        if (appointment.Contact == null)
+            return false;
+
+        // Check if contact has a phone number
+        if (!string.IsNullOrEmpty(appointment.Contact.PhoneNumber))
+            return true;
+
+        // For minors, check if parent has a phone number
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+            return true;
+
+        return false;
+    }
+
+    private string GetParentPhoneDisplay(Contact contact)
+    {
+        if (contact.HeadOfHouse == null)
+            return "No parent phone";
+
+        var parentPhones = new List<string>();
+
+        // Add head of house phone
+        if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+        {
+            parentPhones.Add($"{contact.HeadOfHouse.FirstName}: {contact.HeadOfHouse.PhoneNumber}");
+        }
+
+        // Add spouse phone if available and different
+        if (contact.HeadOfHouse.Spouse != null && 
+            !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
+            contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+        {
+            parentPhones.Add($"{contact.HeadOfHouse.Spouse.FirstName}: {contact.HeadOfHouse.Spouse.PhoneNumber}");
+        }
+
+        return parentPhones.Any() ? string.Join(" | ", parentPhones) : "No parent phone";
+    }
+
+    private string GetSmsButtonLabel(Contact? contact)
+    {
+        if (contact == null || !contact.IsMinor || contact.HeadOfHouse == null)
+            return "";
+
+        var parentCount = 0;
+        
+        // Count valid parent phone numbers
+        if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+            parentCount++;
+
+        if (contact.HeadOfHouse.Spouse != null && 
+            !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
+            contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
+            parentCount++;
+
+        return parentCount switch
+        {
+            0 => "",
+            1 => "(Parent)",
+            _ => "(Both Parents)"
+        };
+    }
+
+    private async Task CopyPhoneToClipboard(string phoneNumber)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", phoneNumber);
+        await JSRuntime.InvokeVoidAsync("alert", "Phone number copied to clipboard!");
+    }
+
+    private async Task CopyMessageToClipboard(string message)
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", message);
+        await JSRuntime.InvokeVoidAsync("alert", "Message copied to clipboard!");
+    }
+}

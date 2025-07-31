@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom mobile-first styles */
+@layer base {
+  html {
+    font-size: 16px;
+  }
+  
+  body {
+    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white;
+  }
+}
+
+@layer components {
+  /* Mobile-first navigation */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50;
+  }
+  
+  .mobile-nav-item {
+    @apply flex flex-col items-center justify-center py-2 px-3 text-xs text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400;
+    min-height: 3.5rem;
+  }
+  
+  .mobile-nav-item.active {
+    @apply text-primary-600 dark:text-primary-400;
+  }
+  
+  /* Desktop sidebar */
+  .desktop-sidebar {
+    @apply hidden md:block fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40;
+  }
+  
+  /* Touch-friendly components */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Card styles */
+  .feature-card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow duration-200;
+  }
+  
+  /* Form styles */
+  .form-input {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200;
+  }
+}
+
+@layer utilities {
+  /* Safe area for mobile devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mobile content adjustment */
+@media (max-width: 768px) {
+  .main-content {
+    padding-bottom: 5rem; /* Space for bottom navigation */
+  }
+}
+
+/* Desktop content adjustment */
+@media (min-width: 768px) {
+  .main-content {
+    margin-left: 16rem; /* Space for sidebar */
+  }
+}

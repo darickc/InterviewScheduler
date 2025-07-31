@@ -1,0 +1,14 @@
+{
+  "name": "interviewscheduler-server",
+  "version": "1.0.0",
+  "description": "Mobile-first Interview Scheduler Server",
+  "scripts": {
+    "build-css": "tailwindcss -i ./wwwroot/css/app.css -o ./wwwroot/css/site.css --watch",
+    "build-css-prod": "tailwindcss -i ./wwwroot/css/app.css -o ./wwwroot/css/site.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "flowbite": "^2.2.0",
+    "@tailwindcss/forms": "^0.5.7"
+  }
+}

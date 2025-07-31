@@ -1,0 +1,25 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<AuthorizeView>
+    <Authorized>
+        <div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+            <span class="text-white font-medium text-sm">
+                @GetInitials(context.User.Identity?.Name ?? "")
+            </span>
+        </div>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "U";
+        
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        return parts[0][0].ToString().ToUpper();
+    }
+}

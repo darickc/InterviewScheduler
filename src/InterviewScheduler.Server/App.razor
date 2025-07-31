@@ -1,12 +1,61 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-    <NotFound>
-        <PageTitle>Not found</PageTitle>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <base href="~/" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+</head>
+
+<body class="font-sans antialiased">
+    <div id="app">
+        <Router AppAssembly="@typeof(App).Assembly">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                    <NotAuthorized>
+                        @if (context.User.Identity?.IsAuthenticated != true)
+                        {
+                            <RedirectToLogin />
+                        }
+                        else
+                        {
+                            <p role="alert">You are not authorized to access this resource.</p>
+                        }
+                    </NotAuthorized>
+                </AuthorizeRouteView>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <div class="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+                        <div class="text-center">
+                            <h1 class="text-6xl font-bold text-gray-400 dark:text-gray-600">404</h1>
+                            <h2 class="mt-4 text-2xl font-semibold text-gray-900 dark:text-white">Page not found</h2>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400">Sorry, there's nothing at this address.</p>
+                            <a href="/" class="mt-6 btn-primary">Go Home</a>
+                        </div>
+                    </div>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </div>
+
+    <div id="blazor-error-ui" class="fixed bottom-0 left-0 right-0 bg-red-500 text-white text-center py-3 z-50" style="display: none;">
+        <div class="flex items-center justify-center">
+            <span class="mr-3">An unhandled error has occurred.</span>
+            <button class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm" onclick="window.location.reload()">Reload</button>
+            <button class="ml-2 bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm" onclick="document.getElementById('blazor-error-ui').style.display='none'">Dismiss</button>
+        </div>
+    </div>
+
+    <script src="_framework/blazor.server.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
+</body>
+</html>
+
+@code {
+    
+}

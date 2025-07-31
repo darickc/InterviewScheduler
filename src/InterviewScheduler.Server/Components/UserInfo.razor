@@ -1,0 +1,46 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+                    <span class="text-white font-medium text-sm">
+                        @GetInitials(context.User.Identity?.Name ?? "")
+                    </span>
+                </div>
+                <div class="hidden sm:block">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        @context.User.Identity?.Name
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        @context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress")?.Value
+                    </p>
+                </div>
+            </div>
+            <a href="/signout-google" class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200">
+                Sign Out
+            </a>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a href="/signin-google" class="btn-primary w-full text-center">
+            Sign In with Google
+        </a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "U";
+        
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        return parts[0][0].ToString().ToUpper();
+    }
+}

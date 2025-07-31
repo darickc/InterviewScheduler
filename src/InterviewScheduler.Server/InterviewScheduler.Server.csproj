@@ -4,6 +4,21 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>512c1e22-0642-4b56-a88b-9d0e539ed712</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\InterviewScheduler.Core\InterviewScheduler.Core.csproj" />
+    <ProjectReference Include="..\InterviewScheduler.Infrastructure\InterviewScheduler.Infrastructure.csproj" />
+    <ProjectReference Include="..\InterviewScheduler.Shared\InterviewScheduler.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
 
 </Project>

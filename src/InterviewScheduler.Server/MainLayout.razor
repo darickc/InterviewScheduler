@@ -1,3 +1,19 @@
 ﻿@inherits LayoutComponentBase
 
-<main> @Body </main>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Desktop Sidebar Navigation -->
+    <NavSidebar />
+    
+    <!-- Mobile Header -->
+    <MobileHeader />
+    
+    <!-- Main Content -->
+    <main class="main-content min-h-screen">
+        <div class="container mx-auto px-4 py-6 max-w-7xl">
+            @Body
+        </div>
+    </main>
+    
+    <!-- Mobile Bottom Navigation -->
+    <MobileBottomNav />
+</div>

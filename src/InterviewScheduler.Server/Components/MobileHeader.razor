@@ -1,0 +1,22 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+    <div class="flex items-center justify-between px-4 h-16">
+        <!-- Logo -->
+        <div class="flex items-center">
+            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Interview Scheduler</h1>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="flex items-center space-x-3">
+            <AuthorizeView>
+                <Authorized>
+                    <UserAvatar />
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/signin-google" class="text-sm font-medium text-primary-600 dark:text-primary-400">Sign In</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</header>

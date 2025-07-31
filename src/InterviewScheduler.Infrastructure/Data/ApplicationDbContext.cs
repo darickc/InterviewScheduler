@@ -96,8 +96,13 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(100);
                 
+            entity.Property(e => e.Email)
+                .HasMaxLength(255);
+                
+            entity.Property(e => e.Phone)
+                .HasMaxLength(20);
+                
             entity.Property(e => e.GoogleCalendarId)
-                .IsRequired()
                 .HasMaxLength(255);
                 
             // User relationship

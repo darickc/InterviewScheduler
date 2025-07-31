@@ -1,0 +1,793 @@
+@page "/appointment-types"
+@attribute [Authorize]
+@using InterviewScheduler.Core.Entities
+@using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@inject ApplicationDbContext DbContext
+@inject IUserService UserService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Appointment Types</PageTitle>
+
+<!-- Mobile Header -->
+<div class="sticky top-0 z-30 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200/80 dark:border-gray-700/80 px-4 py-3 md:hidden">
+    <div class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Appointment Types</h1>
+        <div class="flex items-center space-x-2">
+            <!-- Search Toggle -->
+            <button @onclick="ToggleSearch" class="btn-ghost p-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </button>
+            <!-- Templates Toggle -->
+            <button @onclick="ToggleTemplates" class="btn-ghost p-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Desktop Header -->
+<div class="hidden md:block mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Appointment Types Configuration</h1>
+    <p class="text-gray-600 dark:text-gray-300">Manage appointment types and message templates</p>
+</div>
+
+<!-- Search Bar (Mobile Collapsible) -->
+<div class="@(showSearch ? "block" : "hidden md:block") px-4 md:px-0 py-4 md:py-0 bg-gray-50 dark:bg-gray-900 md:bg-transparent border-b border-gray-200 dark:border-gray-700 md:border-0 mb-4">
+    <div class="relative">
+        <input type="text" 
+               class="form-input pl-10" 
+               placeholder="Search appointment types..."
+               @bind="searchTerm" 
+               @bind:event="oninput">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <div class="flex items-center justify-between mt-3">
+        <span class="text-sm text-gray-600 dark:text-gray-400">
+            @filteredAppointmentTypes.Count() of @appointmentTypes.Count types
+        </span>
+        @if (!string.IsNullOrEmpty(searchTerm))
+        {
+            <button @onclick="ClearSearch" class="btn-ghost text-xs px-2 py-1">
+                Clear Search
+            </button>
+        }
+    </div>
+</div>
+
+<!-- Templates Panel (Mobile Collapsible) -->
+<div class="@(showTemplates ? "block" : "hidden") px-4 md:px-0 py-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 mb-4 md:hidden">
+    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Quick Templates</h3>
+    <div class="grid grid-cols-1 gap-2">
+        @foreach (var template in GetDefaultTemplates())
+        {
+            <button @onclick="() => UseTemplate(template)" 
+                    class="text-left p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <div class="font-medium text-gray-900 dark:text-white">@template.Name</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">@template.Duration min • Tap to use</div>
+            </button>
+        }
+    </div>
+</div>
+
+<!-- Appointment Types List -->
+<div class="px-4 md:px-0 pb-24 md:pb-0">
+    @if (isLoading)
+    {
+        <!-- Loading Skeleton -->
+        <div class="space-y-4">
+            @for (int i = 0; i < 3; i++)
+            {
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <div class="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                        </div>
+                        <div class="w-16 h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (!filteredAppointmentTypes.Any())
+    {
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                @if (string.IsNullOrEmpty(searchTerm))
+                {
+                    <text>No appointment types found</text>
+                }
+                else
+                {
+                    <text>No types match your search</text>
+                }
+            </h3>
+            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                @if (string.IsNullOrEmpty(searchTerm))
+                {
+                    <text>Create your first appointment type to get started with scheduling.</text>
+                }
+                else
+                {
+                    <text>Try adjusting your search term or create a new type.</text>
+                }
+            </p>
+            @if (!appointmentTypes.Any())
+            {
+                <button class="btn-primary" @onclick="() => EditAppointmentType(null)">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Create First Type
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Appointment Types Cards -->
+        <div class="space-y-3">
+            @foreach (var type in filteredAppointmentTypes)
+            {
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <!-- Card Header -->
+                    <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-gray-900 dark:text-white mb-1 truncate">@type.Name</h3>
+                                <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    @type.Duration minutes
+                                    <span class="mx-2">•</span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-500">@appointmentTypes.Count(a => a.Id == type.Id) appointments</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-1 ml-2">
+                                <button @onclick="() => PreviewTemplates(type)" class="btn-ghost p-2" title="Preview Templates">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </button>
+                                <button @onclick="() => EditAppointmentType(type)" class="btn-ghost p-2" title="Edit">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+                                <button @onclick="() => DeleteAppointmentType(type)" class="btn-ghost p-2 hover:text-red-600 dark:hover:text-red-400" title="Delete">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Message Templates Preview -->
+                    <div class="p-4 space-y-3">
+                        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-blue-700 dark:text-blue-300">Adult Template</span>
+                                <button @onclick="() => CopyToClipboard(type.MessageTemplate)" 
+                                        class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">@type.MessageTemplate</p>
+                        </div>
+                        
+                        <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-green-700 dark:text-green-300">Minor Template</span>
+                                <button @onclick="() => CopyToClipboard(type.MinorMessageTemplate)" 
+                                        class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 002 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">@type.MinorMessageTemplate</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Floating Action Button -->
+<button @onclick="() => EditAppointmentType(null)" 
+        class="fixed bottom-20 right-4 md:bottom-8 md:right-8 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center z-20">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+    </svg>
+</button>
+
+<!-- Edit/Create Modal -->
+@if (showEditDialog && editingType != null)
+{
+    <div class="fixed inset-0 bg-gray-900/50 z-40 flex items-end md:items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 w-full md:max-w-2xl md:mx-4 max-h-[90vh] md:max-h-[85vh] rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 @(showEditDialog ? "translate-y-0" : "translate-y-full") flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    @(editingType.Id > 0 ? "Edit Appointment Type" : "Create Appointment Type")
+                </h2>
+                <button @onclick="CancelEdit" class="btn-ghost p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6">
+                <EditForm Model="editingType" OnValidSubmit="SaveAppointmentType">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="space-y-6">
+                        <!-- Basic Info -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Type Name <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" class="form-input" @bind="editingType.Name" placeholder="e.g., Temple Recommend Interview" maxlength="100" required>
+                                <ValidationMessage For="() => editingType.Name" />
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Duration (minutes) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="flex items-center space-x-3">
+                                    <input type="range" min="5" max="180" step="5" class="flex-1" @bind="editingType.Duration">
+                                    <div class="bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg min-w-[80px] text-center">
+                                        <span class="font-medium text-gray-900 dark:text-white">@editingType.Duration min</span>
+                                    </div>
+                                </div>
+                                <ValidationMessage For="() => editingType.Duration" />
+                            </div>
+                        </div>
+
+                        <!-- Adult Message Template -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Adult Message Template <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <textarea class="form-textarea pr-10" rows="4" @bind="editingType.MessageTemplate" 
+                                          placeholder="Enter message template for adults..." maxlength="1000" required></textarea>
+                                <button type="button" @onclick="() => ShowPlaceholders = !ShowPlaceholders" 
+                                        class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                @editingType.MessageTemplate.Length/1000 characters
+                            </div>
+                            <ValidationMessage For="() => editingType.MessageTemplate" />
+                        </div>
+
+                        <!-- Minor Message Template -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Minor Message Template <span class="text-red-500">*</span>
+                            </label>
+                            <textarea class="form-textarea" rows="4" @bind="editingType.MinorMessageTemplate" 
+                                      placeholder="Enter message template for minors/parents..." maxlength="1000" required></textarea>
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                @editingType.MinorMessageTemplate.Length/1000 characters
+                            </div>
+                            <ValidationMessage For="() => editingType.MinorMessageTemplate" />
+                        </div>
+
+                        <!-- Placeholders Help -->
+                        @if (ShowPlaceholders)
+                        {
+                            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                                <h4 class="font-medium text-blue-900 dark:text-blue-200 mb-3">Available Placeholders</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                    @foreach (var placeholder in GetPlaceholders())
+                                    {
+                                        <button type="button" @onclick="() => InsertPlaceholder(placeholder.Key)" 
+                                                class="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/40 text-left">
+                                            <span class="font-mono text-blue-600 dark:text-blue-400">@placeholder.Key</span>
+                                            <span class="text-gray-600 dark:text-gray-400 text-xs">@placeholder.Value</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Template Preview -->
+                        @if (!string.IsNullOrEmpty(editingType.MessageTemplate) || !string.IsNullOrEmpty(editingType.MinorMessageTemplate))
+                        {
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-900 dark:text-white">Template Preview</h4>
+                                
+                                @if (!string.IsNullOrEmpty(editingType.MessageTemplate))
+                                {
+                                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                                        <h5 class="font-medium text-blue-900 dark:text-blue-200 mb-2">Adult Version:</h5>
+                                        <p class="text-sm text-gray-700 dark:text-gray-300">@GetPreviewText(editingType.MessageTemplate, false)</p>
+                                    </div>
+                                }
+                                
+                                @if (!string.IsNullOrEmpty(editingType.MinorMessageTemplate))
+                                {
+                                    <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                                        <h5 class="font-medium text-green-900 dark:text-green-200 mb-2">Minor Version:</h5>
+                                        <p class="text-sm text-gray-700 dark:text-gray-300">@GetPreviewText(editingType.MinorMessageTemplate, true)</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="flex gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button type="submit" class="btn-primary flex-1" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <div class="loading-spinner w-4 h-4 mr-2"></div>
+                                <text>Saving...</text>
+                            }
+                            else
+                            {
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <text>@(editingType.Id > 0 ? "Update Type" : "Create Type")</text>
+                            }
+                        </button>
+                        <button type="button" @onclick="CancelEdit" class="btn-secondary flex-1" disabled="@isSaving">
+                            Cancel
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Template Preview Modal -->
+@if (showPreviewDialog && previewingType != null)
+{
+    <div class="fixed inset-0 bg-gray-900/50 z-40 flex items-end md:items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 w-full md:max-w-lg md:mx-4 max-h-[80vh] rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">@previewingType.Name Preview</h2>
+                <button @onclick="ClosePreview" class="btn-ghost p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-6 space-y-4">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-medium text-blue-900 dark:text-blue-200">Adult Template</h3>
+                        <button @onclick="() => CopyToClipboard(GetPreviewText(previewingType.MessageTemplate, false))" 
+                                class="btn-ghost p-1 text-blue-600 dark:text-blue-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">@GetPreviewText(previewingType.MessageTemplate, false)</p>
+                </div>
+                
+                <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-medium text-green-900 dark:text-green-200">Minor Template</h3>
+                        <button @onclick="() => CopyToClipboard(GetPreviewText(previewingType.MinorMessageTemplate, true))" 
+                                class="btn-ghost p-1 text-green-600 dark:text-green-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">@GetPreviewText(previewingType.MinorMessageTemplate, true)</p>
+                </div>
+                
+                <div class="text-xs text-gray-500 dark:text-gray-400 text-center pt-2">
+                    This preview uses sample data to show how your templates will appear
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteDialog && deletingType != null)
+{
+    <div class="fixed inset-0 bg-gray-900/50 z-50 flex items-end md:items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 w-full md:max-w-sm md:mx-4 rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300">
+            <div class="p-6 text-center">
+                <svg class="w-16 h-16 text-red-600 dark:text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Appointment Type?</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Are you sure you want to delete <strong>@deletingType.Name</strong>? This action cannot be undone and will affect any existing appointments using this type.
+                </p>
+                <div class="flex gap-3">
+                    <button @onclick="ConfirmDelete" class="btn-danger flex-1" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <div class="loading-spinner w-4 h-4 mr-2"></div>
+                            <text>Deleting...</text>
+                        }
+                        else
+                        {
+                            <text>Delete</text>
+                        }
+                    </button>
+                    <button @onclick="CancelDelete" class="btn-secondary flex-1" disabled="@isDeleting">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AppointmentType> appointmentTypes = new();
+    private AppointmentType? editingType;
+    private AppointmentType? deletingType;
+    private AppointmentType? previewingType;
+    
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+    private bool showEditDialog = false;
+    private bool showDeleteDialog = false;
+    private bool showPreviewDialog = false;
+    private bool showSearch = false;
+    private bool showTemplates = false;
+    private bool ShowPlaceholders = false;
+    
+    private string? searchTerm;
+
+    private IEnumerable<AppointmentType> filteredAppointmentTypes
+    {
+        get
+        {
+            var filtered = appointmentTypes.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                filtered = filtered.Where(t =>
+                    t.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    t.MessageTemplate.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    t.MinorMessageTemplate.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return filtered.OrderBy(t => t.Name);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAppointmentTypes();
+    }
+
+    private async Task LoadAppointmentTypes()
+    {
+        isLoading = true;
+        
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) 
+        {
+            isLoading = false;
+            return;
+        }
+        
+        appointmentTypes = await DbContext.AppointmentTypes
+            .Where(t => t.UserId == currentUser.Id)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+            
+        isLoading = false;
+    }
+
+    private void ToggleSearch()
+    {
+        showSearch = !showSearch;
+        if (showTemplates) showTemplates = false;
+    }
+
+    private void ToggleTemplates()
+    {
+        showTemplates = !showTemplates;
+        if (showSearch) showSearch = false;
+    }
+
+    private void ClearSearch()
+    {
+        searchTerm = null;
+    }
+
+    private void EditAppointmentType(AppointmentType? type)
+    {
+        if (type == null)
+        {
+            // Creating new appointment type
+            editingType = new AppointmentType
+            {
+                Duration = 30,
+                MessageTemplate = "",
+                MinorMessageTemplate = ""
+            };
+        }
+        else
+        {
+            // Editing existing type - create a copy
+            editingType = new AppointmentType
+            {
+                Id = type.Id,
+                Name = type.Name,
+                Duration = type.Duration,
+                MessageTemplate = type.MessageTemplate,
+                MinorMessageTemplate = type.MinorMessageTemplate,
+                UserId = type.UserId
+            };
+        }
+        
+        ShowPlaceholders = false;
+        showEditDialog = true;
+    }
+
+    private async Task SaveAppointmentType()
+    {
+        if (editingType == null) return;
+
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+
+        isSaving = true;
+
+        try
+        {
+            if (editingType.Id == 0)
+            {
+                // New appointment type
+                editingType.UserId = currentUser.Id;
+                DbContext.AppointmentTypes.Add(editingType);
+            }
+            else
+            {
+                // Update existing
+                var existing = await DbContext.AppointmentTypes.FindAsync(editingType.Id);
+                if (existing != null && existing.UserId == currentUser.Id)
+                {
+                    existing.Name = editingType.Name;
+                    existing.Duration = editingType.Duration;
+                    existing.MessageTemplate = editingType.MessageTemplate;
+                    existing.MinorMessageTemplate = editingType.MinorMessageTemplate;
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            await LoadAppointmentTypes();
+            
+            showEditDialog = false;
+            editingType = null;
+        }
+        catch (Exception ex)
+        {
+            // Handle error - in production, show user-friendly message
+            Console.WriteLine($"Error saving appointment type: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        showEditDialog = false;
+        editingType = null;
+        ShowPlaceholders = false;
+    }
+
+    private void DeleteAppointmentType(AppointmentType type)
+    {
+        deletingType = type;
+        showDeleteDialog = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deletingType == null) return;
+
+        var currentUser = await UserService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+
+        isDeleting = true;
+
+        try
+        {
+            var type = await DbContext.AppointmentTypes
+                .FirstOrDefaultAsync(t => t.Id == deletingType.Id && t.UserId == currentUser.Id);
+                
+            if (type != null)
+            {
+                DbContext.AppointmentTypes.Remove(type);
+                await DbContext.SaveChangesAsync();
+                await LoadAppointmentTypes();
+            }
+            
+            showDeleteDialog = false;
+            deletingType = null;
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+            Console.WriteLine($"Error deleting appointment type: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteDialog = false;
+        deletingType = null;
+    }
+
+    private void PreviewTemplates(AppointmentType type)
+    {
+        previewingType = type;
+        showPreviewDialog = true;
+    }
+
+    private void ClosePreview()
+    {
+        showPreviewDialog = false;
+        previewingType = null;
+    }
+
+    private void UseTemplate(DefaultTemplate template)
+    {
+        if (editingType == null)
+        {
+            editingType = new AppointmentType();
+        }
+        
+        editingType.Name = template.Name;
+        editingType.Duration = template.Duration;
+        editingType.MessageTemplate = template.MessageTemplate;
+        editingType.MinorMessageTemplate = template.MinorMessageTemplate;
+        
+        showTemplates = false;
+        showEditDialog = true;
+    }
+
+    private void InsertPlaceholder(string placeholder)
+    {
+        // This would ideally focus on the textarea and insert at cursor position
+        // For simplicity, we'll append to the adult template
+        if (editingType != null)
+        {
+            editingType.MessageTemplate += placeholder;
+        }
+    }
+
+    private async Task CopyToClipboard(string? text)
+    {
+        if (!string.IsNullOrEmpty(text))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+    }
+
+    private string GetPreviewText(string template, bool isMinor)
+    {
+        var preview = template
+            .Replace("{{ContactName}}", isMinor ? "Emily Johnson" : "John Smith")
+            .Replace("{{LeaderName}}", "Bishop Williams")
+            .Replace("{{Date}}", DateTime.Now.AddDays(7).ToString("MMMM d, yyyy"))
+            .Replace("{{Time}}", "3:00 PM")
+            .Replace("{{Duration}}", editingType?.Duration.ToString() ?? "30")
+            .Replace("{{AppointmentType}}", editingType?.Name ?? "Appointment");
+
+        if (isMinor)
+        {
+            preview = preview
+                .Replace("{{ChildName}}", "Emily Johnson")
+                .Replace("{{ParentName}}", "Mr. and Mrs. Johnson");
+        }
+
+        return preview;
+    }
+
+    private Dictionary<string, string> GetPlaceholders()
+    {
+        return new Dictionary<string, string>
+        {
+            {"{{ContactName}}", "Contact's full name"},
+            {"{{LeaderName}}", "Leader's name"},
+            {"{{Date}}", "Appointment date"},
+            {"{{Time}}", "Appointment time"},
+            {"{{Duration}}", "Duration in minutes"},
+            {"{{AppointmentType}}", "Type of appointment"},
+            {"{{ChildName}}", "Child's name (minors)"},
+            {"{{ParentName}}", "Parent's name (minors)"}
+        };
+    }
+
+    private List<DefaultTemplate> GetDefaultTemplates()
+    {
+        return new List<DefaultTemplate>
+        {
+            new DefaultTemplate
+            {
+                Name = "Temple Recommend",
+                Duration = 20,
+                MessageTemplate = "Dear {{ContactName}}, you have a temple recommend interview scheduled with {{LeaderName}} on {{Date}} at {{Time}}. Please come prepared with any questions you may have.",
+                MinorMessageTemplate = "Dear Parent/Guardian of {{ContactName}}, your child has a temple recommend interview scheduled with {{LeaderName}} on {{Date}} at {{Time}}. Please ensure they attend."
+            },
+            new DefaultTemplate
+            {
+                Name = "Tithing Settlement",
+                Duration = 15,
+                MessageTemplate = "Hi {{ContactName}}, your tithing settlement appointment with {{LeaderName}} is scheduled for {{Date}} at {{Time}}. Please bring your donation records.",
+                MinorMessageTemplate = "Dear Parent/Guardian of {{ContactName}}, your family's tithing settlement with {{LeaderName}} is scheduled for {{Date}} at {{Time}}. Please bring donation records."
+            },
+            new DefaultTemplate
+            {
+                Name = "Personal Counseling",
+                Duration = 45,
+                MessageTemplate = "Dear {{ContactName}}, you have a counseling appointment with {{LeaderName}} on {{Date}} at {{Time}}. This will be a confidential discussion.",
+                MinorMessageTemplate = "Dear Parent/Guardian of {{ContactName}}, your child has a counseling appointment with {{LeaderName}} on {{Date}} at {{Time}}. Please ensure they attend."
+            },
+            new DefaultTemplate
+            {
+                Name = "General Meeting",
+                Duration = 30,
+                MessageTemplate = "Hello {{ContactName}}, you have been scheduled for a meeting with {{LeaderName}} on {{Date}} at {{Time}}. Please confirm your attendance.",
+                MinorMessageTemplate = "Dear Parent/Guardian of {{ContactName}}, your child has been scheduled to meet with {{LeaderName}} on {{Date}} at {{Time}}. Please ensure they are available."
+            }
+        };
+    }
+
+    public class DefaultTemplate
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Duration { get; set; }
+        public string MessageTemplate { get; set; } = string.Empty;
+        public string MinorMessageTemplate { get; set; } = string.Empty;
+    }
+}

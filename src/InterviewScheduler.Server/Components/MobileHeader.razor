@@ -1,22 +1,89 @@
 @using Microsoft.AspNetCore.Components.Authorization
 
-<header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-    <div class="flex items-center justify-between px-4 h-16">
+<header class="md:hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200/80 dark:border-gray-700/80 sticky top-0 z-40 safe-area-top">
+    <div class="flex items-center justify-between px-4 sm:px-6 h-16">
         <!-- Logo -->
-        <div class="flex items-center">
-            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Interview Scheduler</h1>
+        <div class="flex items-center flex-1 min-w-0">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-lg font-semibold text-gray-900 dark:text-white truncate">Interview Scheduler</h1>
+            </div>
         </div>
         
         <!-- User Menu -->
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3 flex-shrink-0">
             <AuthorizeView>
                 <Authorized>
-                    <UserAvatar />
+                    <div class="relative">
+                        <button 
+                            class="touch-target flex items-center justify-center w-10 h-10 rounded-full bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200"
+                            type="button"
+                            aria-label="User menu"
+                            @onclick="ToggleUserMenu">
+                            <span class="text-white font-medium text-sm">
+                                @GetInitials(context.User.Identity?.Name ?? "")
+                            </span>
+                        </button>
+                        
+                        @if (showUserMenu)
+                        {
+                            <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                                <div class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                                    <div class="font-medium truncate">@context.User.Identity?.Name</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 truncate">@context.User.FindFirst("email")?.Value</div>
+                                </div>
+                                <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    Profile
+                                </a>
+                                <a href="/settings" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                    Settings
+                                </a>
+                                <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                <a href="/signout" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                    Sign Out
+                                </a>
+                            </div>
+                        }
+                    </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="/signin-google" class="text-sm font-medium text-primary-600 dark:text-primary-400">Sign In</a>
+                    <a href="/signin-google" 
+                       class="touch-target inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 rounded-lg transition-colors duration-200">
+                        Sign In
+                    </a>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
     </div>
 </header>
+
+@code {
+    private bool showUserMenu = false;
+
+    private void ToggleUserMenu()
+    {
+        showUserMenu = !showUserMenu;
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "U";
+        
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        return parts[0][0].ToString().ToUpper();
+    }
+
+    protected override void OnInitialized()
+    {
+        // Close user menu when clicking outside
+        StateHasChanged();
+    }
+}

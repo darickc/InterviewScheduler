@@ -233,7 +233,7 @@
 @if (showEditDialog && editingType != null)
 {
     <div class="fixed inset-0 bg-gray-900/50 z-40 flex items-end md:items-center justify-center">
-        <div class="bg-white dark:bg-gray-800 w-full md:max-w-2xl md:mx-4 max-h-[85vh] md:max-h-[85vh] rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 @(showEditDialog ? "translate-y-0" : "translate-y-full") flex flex-col safe-area-bottom">
+        <div class="bg-white dark:bg-gray-800 w-full md:max-w-2xl md:mx-4 mobile-modal rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 @(showEditDialog ? "translate-y-0" : "translate-y-full") flex flex-col">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                     @(editingType.Id > 0 ? "Edit Appointment Type" : "Create Appointment Type")
@@ -245,14 +245,14 @@
                 </button>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-6">
+            <div class="flex-1 overflow-y-auto">
                 <EditForm Model="editingType" OnValidSubmit="SaveAppointmentType">
                     <DataAnnotationsValidator />
                     
-                    <div class="space-y-6">
+                    <div class="mobile-form-section">
                         <!-- Basic Info -->
-                        <div class="space-y-4">
-                            <div>
+                        <div class="space-y-6">
+                            <div class="mobile-input-group">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Type Name <span class="text-red-500">*</span>
                                 </label>
@@ -260,7 +260,7 @@
                                 <ValidationMessage For="() => editingType.Name" />
                             </div>
 
-                            <div>
+                            <div class="mobile-input-group">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Duration (minutes) <span class="text-red-500">*</span>
                                 </label>
@@ -275,7 +275,7 @@
                         </div>
 
                         <!-- Adult Message Template -->
-                        <div>
+                        <div class="mobile-input-group">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Adult Message Template <span class="text-red-500">*</span>
                             </label>
@@ -296,7 +296,7 @@
                         </div>
 
                         <!-- Minor Message Template -->
-                        <div>
+                        <div class="mobile-input-group">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Minor Message Template <span class="text-red-500">*</span>
                             </label>
@@ -355,7 +355,7 @@
             </div>
             
             <!-- Fixed Footer with Buttons -->
-            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-800 rounded-b-xl md:rounded-b-lg">
+            <div class="mobile-modal-footer rounded-b-xl md:rounded-b-lg">
                 <div class="flex gap-3">
                     <button type="button" @onclick="SaveAppointmentType" class="btn-primary flex-1" disabled="@isSaving">
                         @if (isSaving)

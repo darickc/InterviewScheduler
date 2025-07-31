@@ -66,35 +66,87 @@
   /* Form styles */
   .form-input {
     @apply touch-target w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-400 transition-all duration-200 shadow-sm hover:border-gray-400 dark:hover:border-gray-500;
+    font-size: 16px; /* Prevents zoom on iOS */
+    -webkit-appearance: none;
+    appearance: none;
   }
   
   .form-input:focus {
-    @apply shadow-md transform scale-[1.01] border-primary-500 dark:border-primary-400;
+    @apply shadow-lg ring-4 ring-primary-500/20 border-primary-500 dark:border-primary-400;
+    transform: scale(1.01);
+    outline: none;
+  }
+  
+  .form-input:active {
+    @apply ring-2 ring-primary-500/30;
   }
   
   .form-textarea {
     @apply form-input min-h-[120px] resize-y;
+    font-family: inherit;
   }
   
   .form-select {
-    @apply form-input pr-10 cursor-pointer bg-white dark:bg-gray-800 appearance-none;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-    background-position: right 0.75rem center;
+    @apply form-input pr-12 cursor-pointer bg-white dark:bg-gray-800 appearance-none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 1rem center;
     background-repeat: no-repeat;
-    background-size: 1.5em 1.5em;
+    background-size: 1.25em 1.25em;
   }
   
   .form-select:focus {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   }
   
   /* Dark mode select arrow */
   .dark .form-select {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
   }
   
   .dark .form-select:focus {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2560a5fa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2560a5fa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  }
+  
+  /* Mobile form sections */
+  .mobile-form-section {
+    @apply space-y-6 px-6 py-4;
+  }
+  
+  .mobile-input-group {
+    @apply space-y-2;
+  }
+  
+  .mobile-input-group label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+  }
+  
+  /* Mobile modal containers */
+  .mobile-modal {
+    @apply max-h-[calc(100vh-8rem)] md:max-h-[80vh];
+  }
+  
+  .mobile-modal-footer {
+    @apply border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-800 safe-area-bottom;
+    margin-bottom: env(safe-area-inset-bottom);
+    position: sticky;
+    bottom: 0;
+  }
+  
+  /* Ensure buttons are always accessible on mobile */
+  @media (max-width: 768px) {
+    .mobile-modal {
+      max-height: calc(100vh - 6rem); /* Account for mobile browser UI */
+    }
+    
+    .mobile-modal-footer {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    
+    .dark .mobile-modal-footer {
+      background: rgba(31, 41, 55, 0.98);
+    }
   }
   
   /* Button styles */

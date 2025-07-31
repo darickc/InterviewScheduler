@@ -129,7 +129,7 @@
 @if (showEditDialog)
 {
     <div class="fixed inset-0 bg-gray-900/50 z-40 flex items-end md:items-center justify-center">
-        <div class="bg-white dark:bg-gray-800 w-full md:max-w-lg md:mx-4 max-h-[85vh] md:max-h-[80vh] rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 @(showEditDialog ? "translate-y-0" : "translate-y-full") flex flex-col safe-area-bottom">
+        <div class="bg-white dark:bg-gray-800 w-full md:max-w-lg md:mx-4 mobile-modal rounded-t-xl md:rounded-lg shadow-xl transform transition-all duration-300 @(showEditDialog ? "translate-y-0" : "translate-y-full") flex flex-col">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                     @(editingLeader?.Id > 0 ? "Edit Leader" : "Add Leader")
@@ -141,21 +141,21 @@
                 </button>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-6">
+            <div class="flex-1 overflow-y-auto">
                 @if (editingLeader != null)
                 {
                     <form @onsubmit="SaveLeader" @onsubmit:preventDefault="true">
-                        <div class="space-y-4">
+                        <div class="mobile-form-section">
                             <!-- Basic Info -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <div class="mobile-input-group">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Name <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" class="form-input" @bind="editingLeader.Name" required>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <div class="mobile-input-group">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Title <span class="text-red-500">*</span>
                                 </label>
                                 <select class="form-select" @bind="editingLeader.Title" required>
@@ -170,8 +170,8 @@
 
 
                             <!-- Calendar Integration -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <div class="mobile-input-group">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Google Calendar
                                 </label>
                                 <div class="space-y-3">
@@ -252,14 +252,16 @@
                             </div>
 
                             <!-- Active Status -->
-                            <div class="flex items-center">
-                                <input type="checkbox" 
-                                       id="isActive" 
-                                       class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" 
-                                       @bind="editingLeader.IsActive">
-                                <label for="isActive" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                    Active Leader
-                                </label>
+                            <div class="mobile-input-group">
+                                <div class="flex items-center">
+                                    <input type="checkbox" 
+                                           id="isActive" 
+                                           class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 touch-target" 
+                                           @bind="editingLeader.IsActive">
+                                    <label for="isActive" class="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                                        Active Leader
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -268,7 +270,7 @@
             </div>
             
             <!-- Fixed Footer with Buttons -->
-            <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-800 rounded-b-xl md:rounded-b-lg">
+            <div class="mobile-modal-footer rounded-b-xl md:rounded-b-lg">
                 <div class="flex gap-3">
                     <button type="button" @onclick="SaveLeader" class="btn-primary flex-1" disabled="@(isSaving)">
                         @if (isSaving)

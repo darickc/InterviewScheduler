@@ -7,24 +7,26 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <base href="~/" />
     <link href="css/site.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
-<body>
-    <component type="typeof(App)" render-mode="ServerPrerendered" />
+<body class="font-sans antialiased">
+    <div id="app">
+        <component type="typeof(App)" render-mode="ServerPrerendered" />
+    </div>
 
-    <div id="blazor-error-ui">
-        <environment include="Staging,Production">
-            An error has occurred. This application may no longer respond until reloaded.
-        </environment>
-        <environment include="Development">
-            An unhandled exception has occurred. See browser dev tools for details.
-        </environment>
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
+    <div id="blazor-error-ui" class="fixed bottom-0 left-0 right-0 bg-red-500 text-white text-center py-3 z-50" style="display: none;">
+        <div class="flex items-center justify-center">
+            <span class="mr-3">An unhandled error has occurred.</span>
+            <button class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm" onclick="window.location.reload()">Reload</button>
+            <button class="ml-2 bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm" onclick="document.getElementById('blazor-error-ui').style.display='none'">Dismiss</button>
+        </div>
     </div>
 
     <script src="_framework/blazor.server.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.js"></script>
 </body>
 </html>

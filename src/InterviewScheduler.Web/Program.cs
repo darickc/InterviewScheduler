@@ -2,9 +2,11 @@ using InterviewScheduler.Web.Components;
 using InterviewScheduler.Infrastructure.Data;
 using InterviewScheduler.Infrastructure.Services;
 using InterviewScheduler.Core.Interfaces;
+using InterviewScheduler.Core.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
+using Itenso.TimePeriod;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,11 +32,53 @@ builder.Services.AddDataProtection();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=interviewscheduler.db"));
 
+// Configure scheduling system
+builder.Services.Configure<SchedulingConfiguration>(options =>
+{
+    // Use completely unrestricted configuration - no blocked periods at all
+    var config = SchedulingConfiguration.CreateUnrestrictedConfiguration();
+    
+    // Ensure absolutely no restrictions
+    config.DefaultBufferTimeMinutes = 0;
+    config.DefaultMinimumAdvanceBookingHours = 0;
+    config.DefaultMaximumAdvanceBookingDays = 365;
+    config.AllowWeekendSchedulingByDefault = true;
+    config.AllowAfterHoursSchedulingByDefault = true;
+    config.EnforceStrictValidation = false;
+    
+    // Clear any holidays or blackout periods to ensure nothing is blocked
+    config.Holidays.Clear();
+    config.RecurringBlackouts.Clear();
+    
+    // Apply any configuration overrides from appsettings.json if needed
+    builder.Configuration.GetSection("Scheduling").Bind(config);
+    
+    // Copy values to options
+    options.DefaultWorkingHours = config.DefaultWorkingHours;
+    options.DefaultBufferTimeMinutes = config.DefaultBufferTimeMinutes;
+    options.DefaultMinimumAdvanceBookingHours = config.DefaultMinimumAdvanceBookingHours;
+    options.DefaultMaximumAdvanceBookingDays = config.DefaultMaximumAdvanceBookingDays;
+    options.MaximumAppointmentDurationMinutes = config.MaximumAppointmentDurationMinutes;
+    options.MinimumAppointmentDurationMinutes = config.MinimumAppointmentDurationMinutes;
+    options.AllowWeekendSchedulingByDefault = config.AllowWeekendSchedulingByDefault;
+    options.AllowAfterHoursSchedulingByDefault = config.AllowAfterHoursSchedulingByDefault;
+    options.SystemTimeZone = config.SystemTimeZone;
+    options.Holidays = config.Holidays;
+    options.RecurringBlackouts = config.RecurringBlackouts;
+    options.AllowHighPriorityDoubleBooking = config.AllowHighPriorityDoubleBooking;
+    options.DoubleBookingPriorityThreshold = config.DoubleBookingPriorityThreshold;
+    options.EnableAutomaticAlternativeSuggestions = config.EnableAutomaticAlternativeSuggestions;
+    options.AlternativeSearchDays = config.AlternativeSearchDays;
+    options.EnforceStrictValidation = config.EnforceStrictValidation;
+    options.DefaultTimeSlotIncrementMinutes = config.DefaultTimeSlotIncrementMinutes;
+});
+
 // Add services
 builder.Services.AddScoped<ICsvParserService, CsvParserService>();
 builder.Services.AddScoped<ICalendarService, GoogleCalendarService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ISchedulingRulesService, SchedulingRulesService>();
 
 // Add authentication
 builder.Services.AddAuthentication(options =>

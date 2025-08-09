@@ -8,6 +8,8 @@ using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using InterviewScheduler.Core.Entities;
 using InterviewScheduler.Core.Interfaces;
+using InterviewScheduler.Core.Extensions;
+using InterviewScheduler.Core.Helpers;
 using static InterviewScheduler.Core.Interfaces.ICalendarService;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -15,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using Itenso.TimePeriod;
 
 namespace InterviewScheduler.Infrastructure.Services;
 
@@ -108,6 +111,13 @@ public class GoogleCalendarService : ICalendarService
 
     public async Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes)
     {
+        // Call the enhanced version with default working hours
+        var defaultWorkingHours = WorkingHours.CreateStandardBusinessHours();
+        return await GetAvailableTimeSlotsAsync(calendarId, startDate, endDate, durationMinutes, defaultWorkingHours);
+    }
+
+    public async Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes, WorkingHours? workingHours)
+    {
         await EnsureAuthenticatedAsync();
 
         var timeSlots = new List<TimeSlot>();
@@ -116,53 +126,70 @@ public class GoogleCalendarService : ICalendarService
         {
             _logger.LogInformation($"Fetching calendar events from {startDate} to {endDate} for calendar {calendarId}");
 
-            // Get all events in the date range
-            var request = _calendarService!.Events.List(calendarId);
-            request.TimeMinDateTimeOffset = startDate;
-            request.TimeMaxDateTimeOffset = endDate;
-            request.SingleEvents = true;
-            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+            // Get all events in the date range and convert to TimePeriodCollection
+            var conflictingPeriods = await GetConflictingPeriodsAsync(calendarId, new TimeRange(startDate, endDate));
 
-            var events = await request.ExecuteAsync();
-            _logger.LogInformation($"Found {events.Items.Count} existing events in the date range");
+            _logger.LogInformation($"Found {conflictingPeriods.Count} existing events in the date range");
 
-            // Generate time slots for the specific date and time range
-            _logger.LogInformation($"Generating time slots from {startDate:MM/dd/yyyy h:mm tt} to {endDate:MM/dd/yyyy h:mm tt}");
-            
-            var current = startDate;
-
-            while (current < endDate)
+            // Use working hours if provided, otherwise use full time range
+            if (workingHours != null)
             {
-                var slotEnd = current.AddMinutes(durationMinutes);
-                
-                // Ensure the entire appointment fits within the time window
-                if (slotEnd <= endDate)
+                var currentDate = startDate.Date;
+                while (currentDate <= endDate.Date)
                 {
-                    var isAvailable = !events.Items.Any(e =>
+                    // Get available slots for this date based on working hours
+                    var daySlots = workingHours.GetAvailableSlots(currentDate);
+                    
+                    foreach (var workingSlot in daySlots)
                     {
-                        var eventStart = e.Start.DateTimeDateTimeOffset?.DateTime ?? e.Start.DateTime;
-                        var eventEnd = e.End.DateTimeDateTimeOffset?.DateTime ?? e.End.DateTime;
-                        
-                        if (eventStart.HasValue && eventEnd.HasValue)
-                        {
-                            // Convert to local time if needed
-                            var localEventStart = eventStart.Value.Kind == DateTimeKind.Utc ? eventStart.Value.ToLocalTime() : eventStart.Value;
-                            var localEventEnd = eventEnd.Value.Kind == DateTimeKind.Utc ? eventEnd.Value.ToLocalTime() : eventEnd.Value;
-                            
-                            return current < localEventEnd && slotEnd > localEventStart;
-                        }
-                        return false;
-                    });
+                        // Ensure we only consider slots within the requested time range
+                        var constrainedSlot = new TimeRange(
+                            workingSlot.Start < startDate ? startDate : workingSlot.Start,
+                            workingSlot.End > endDate ? endDate : workingSlot.End
+                        );
 
+                        if (constrainedSlot.Duration.TotalMinutes >= durationMinutes)
+                        {
+                            var slots = constrainedSlot.SplitIntoSlots(durationMinutes);
+                            
+                            foreach (var slot in slots)
+                            {
+                                var isAvailable = !conflictingPeriods.Any(cp => cp.IntersectsWith(slot));
+                                
+                                timeSlots.Add(new TimeSlot
+                                {
+                                    StartTime = slot.Start,
+                                    EndTime = slot.End,
+                                    IsAvailable = isAvailable,
+                                    LeaderId = 0, // Default, will be set by specific leader methods
+                                    LeaderName = "" // Default, will be set by specific leader methods
+                                });
+                            }
+                        }
+                    }
+                    
+                    currentDate = currentDate.AddDays(1);
+                }
+            }
+            else
+            {
+                // Fallback to original logic for backward compatibility
+                var searchRange = new TimeRange(startDate, endDate);
+                var slots = searchRange.SplitIntoSlots(durationMinutes);
+                
+                foreach (var slot in slots)
+                {
+                    var isAvailable = !conflictingPeriods.Any(cp => cp.IntersectsWith(slot));
+                    
                     timeSlots.Add(new TimeSlot
                     {
-                        StartTime = current,
-                        EndTime = slotEnd,
-                        IsAvailable = isAvailable
+                        StartTime = slot.Start,
+                        EndTime = slot.End,
+                        IsAvailable = isAvailable,
+                        LeaderId = 0,
+                        LeaderName = ""
                     });
                 }
-
-                current = current.AddMinutes(30); // Move to next 30-minute slot
             }
 
             _logger.LogInformation($"Generated {timeSlots.Count} total time slots, {timeSlots.Count(s => s.IsAvailable)} available");
@@ -174,6 +201,117 @@ public class GoogleCalendarService : ICalendarService
         }
 
         return timeSlots;
+    }
+
+    public async Task<List<TimeSlot>> GetAvailableTimeSlotsForLeaderAsync(string calendarId, int leaderId, string leaderName, DateTime startDate, DateTime endDate, int durationMinutes, WorkingHours? workingHours = null)
+    {
+        var timeSlots = await GetAvailableTimeSlotsAsync(calendarId, startDate, endDate, durationMinutes, workingHours);
+        
+        // Set leader information on all slots
+        foreach (var slot in timeSlots)
+        {
+            slot.LeaderId = leaderId;
+            slot.LeaderName = leaderName;
+        }
+        
+        return timeSlots;
+    }
+
+    public async Task<bool> IsTimeSlotAvailableAsync(string calendarId, ITimePeriod timeRange)
+    {
+        await EnsureAuthenticatedAsync();
+
+        try
+        {
+            var conflictingPeriods = await GetConflictingPeriodsAsync(calendarId, timeRange);
+            return !conflictingPeriods.Any();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check time slot availability using TimePeriod");
+            return false;
+        }
+    }
+
+    public async Task<TimePeriodCollection> GetConflictingPeriodsAsync(string calendarId, ITimePeriod timeRange)
+    {
+        await EnsureAuthenticatedAsync();
+
+        var conflicts = new TimePeriodCollection();
+
+        try
+        {
+            var request = _calendarService!.Events.List(calendarId);
+            request.TimeMinDateTimeOffset = timeRange.Start;
+            request.TimeMaxDateTimeOffset = timeRange.End;
+            request.SingleEvents = true;
+            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+
+            var events = await request.ExecuteAsync();
+
+            foreach (var eventItem in events.Items)
+            {
+                var eventStart = eventItem.Start.DateTimeDateTimeOffset?.DateTime ?? eventItem.Start.DateTime;
+                var eventEnd = eventItem.End.DateTimeDateTimeOffset?.DateTime ?? eventItem.End.DateTime;
+                
+                if (eventStart.HasValue && eventEnd.HasValue)
+                {
+                    // Convert to local time if needed
+                    var localEventStart = eventStart.Value.Kind == DateTimeKind.Utc ? eventStart.Value.ToLocalTime() : eventStart.Value;
+                    var localEventEnd = eventEnd.Value.Kind == DateTimeKind.Utc ? eventEnd.Value.ToLocalTime() : eventEnd.Value;
+                    
+                    var eventTimeRange = new TimeRange(localEventStart, localEventEnd);
+                    
+                    // Only add if it actually conflicts with our time range
+                    if (eventTimeRange.IntersectsWith(timeRange))
+                    {
+                        conflicts.Add(eventTimeRange);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get conflicting periods for calendar {CalendarId}", calendarId);
+            throw;
+        }
+
+        return conflicts;
+    }
+
+    public async Task<List<Appointment>> FindConflictingAppointmentsAsync(string calendarId, AppointmentTimeRange appointmentTimeRange, IEnumerable<Appointment> existingAppointments)
+    {
+        var conflicts = new List<Appointment>();
+
+        try
+        {
+            // First check Google Calendar conflicts
+            var calendarConflicts = await GetConflictingPeriodsAsync(calendarId, appointmentTimeRange);
+            
+            // Then check local appointment conflicts
+            var localConflicts = appointmentTimeRange.GetConflicts(existingAppointments);
+            
+            // Combine and return unique conflicts
+            conflicts.AddRange(localConflicts);
+            
+            // Log information about conflicts found
+            if (calendarConflicts.Any())
+            {
+                _logger.LogWarning($"Found {calendarConflicts.Count} Google Calendar conflicts for appointment {appointmentTimeRange.AppointmentId}");
+            }
+            
+            if (localConflicts.Any())
+            {
+                _logger.LogWarning($"Found {localConflicts.Count} local appointment conflicts for appointment {appointmentTimeRange.AppointmentId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to find conflicting appointments");
+            throw;
+        }
+
+        return conflicts.Distinct().ToList();
     }
 
     public async Task<string> CreateEventAsync(string calendarId, Appointment appointment)

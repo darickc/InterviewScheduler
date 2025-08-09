@@ -3,11 +3,15 @@
 @using InterviewScheduler.Core.Entities
 @using InterviewScheduler.Core.Enums
 @using InterviewScheduler.Core.Interfaces
+@using InterviewScheduler.Core.Extensions
+@using InterviewScheduler.Core.Helpers
 @using InterviewScheduler.Infrastructure.Data
 @using Microsoft.EntityFrameworkCore
+@using Itenso.TimePeriod
 @inject ApplicationDbContext DbContext
 @inject ICalendarService CalendarService
 @inject ISmsService SmsService
+@inject ISchedulingRulesService SchedulingRulesService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject ILogger<AppointmentWizard> Logger
@@ -242,6 +246,14 @@
                                 {
                                     <div class="alert alert-info">
                                         <strong>Duration:</strong> @selectedAppointmentType.Duration minutes<br>
+                                        @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0)
+                                        {
+                                            <text><strong>Buffer Before:</strong> @selectedAppointmentType.BufferTimeBeforeMinutes minutes<br /></text>
+                                        }
+                                        @if (selectedAppointmentType.BufferTimeAfterMinutes > 0)
+                                        {
+                                            <text><strong>Buffer After:</strong> @selectedAppointmentType.BufferTimeAfterMinutes minutes<br /></text>
+                                        }
                                         <strong>Message Template (Adults):</strong><br>
                                         <small>@selectedAppointmentType.MessageTemplate</small>
                                         <br><br>
@@ -259,25 +271,109 @@
 
                                 <div class="mb-3">
                                     <label class="form-label">Time Range</label>
+                                    
+                                    <!-- Working Hours Info -->
+                                    @if (workingHours?.MorningSession != null)
+                                    {
+                                        <div class="alert alert-light border mb-2">
+                                            <small class="text-muted">
+                                                <i class="bi bi-clock"></i> 
+                                                <strong>Working Hours:</strong> 
+                                                @workingHours.MorningSession.Start.ToString("HH:mm") - 
+                                                @workingHours.MorningSession.End.ToString("HH:mm")
+                                                @if (workingHours.BreakTimes?.Count > 0)
+                                                {
+                                                    <br><strong>Break Times:</strong>
+                                                    @foreach (var breakTime in workingHours.BreakTimes)
+                                                    {
+                                                        <span class="badge bg-secondary ms-1">
+                                                            @breakTime.Start.ToString("HH:mm") - @breakTime.End.ToString("HH:mm")
+                                                        </span>
+                                                    }
+                                                }
+                                            </small>
+                                        </div>
+                                    }
+                                    
                                     <div class="row">
                                         <div class="col-6">
-                                            <input type="time" class="form-control" @bind="startTime" />
+                                            <input type="time" class="form-control @(GetTimeInputClass("start"))" 
+                                                   @bind="startTime" @bind:after="OnTimeRangeChanged" />
                                             <small class="form-text text-muted">Start Time</small>
                                         </div>
                                         <div class="col-6">
-                                            <input type="time" class="form-control" @bind="endTime" />
+                                            <input type="time" class="form-control @(GetTimeInputClass("end"))" 
+                                                   @bind="endTime" @bind:after="OnTimeRangeChanged" />
                                             <small class="form-text text-muted">End Time</small>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Validation Feedback -->
+                                    @if (currentValidationResult != null && (!currentValidationResult.IsValid || currentValidationResult.Warnings.Any()))
+                                    {
+                                        <div class="mt-2">
+                                            @foreach (var error in currentValidationResult.Errors)
+                                            {
+                                                <div class="alert alert-danger py-1 mb-1">
+                                                    <small><i class="bi bi-exclamation-triangle"></i> @error</small>
+                                                </div>
+                                            }
+                                            @foreach (var warning in currentValidationResult.Warnings)
+                                            {
+                                                <div class="alert alert-warning py-1 mb-1">
+                                                    <small><i class="bi bi-exclamation-circle"></i> @warning</small>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    
+                                    <!-- Alternative Time Slots -->
+                                    @if (showAlternatives && alternativeTimeSlots.Any())
+                                    {
+                                        <div class="mt-3">
+                                            <h6 class="text-info">
+                                                <i class="bi bi-lightbulb"></i> Alternative Available Times:
+                                            </h6>
+                                            <div class="row">
+                                                @foreach (var altSlot in alternativeTimeSlots.Take(6))
+                                                {
+                                                    <div class="col-md-4 mb-2">
+                                                        <button type="button" class="btn btn-outline-info btn-sm w-100" 
+                                                                @onclick="() => SelectAlternativeTimeSlot(altSlot)">
+                                                            @altSlot.Start.ToString("HH:mm") - @altSlot.End.ToString("HH:mm")
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </div>
 
                         <div class="mt-3">
                             <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(selectedAppointmentType == null || appointmentDate == default || startTime == default || endTime == default)">
-                                Next: Review & Send
+                            <button class="btn btn-primary" @onclick="NextStep" 
+                                    disabled="@(selectedAppointmentType == null || appointmentDate == default || startTime == default || endTime == default || !IsStep3Valid())">
+                                @if (currentValidationResult != null && !currentValidationResult.IsValid)
+                                {
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <span>Fix Validation Issues</span>
+                                }
+                                else
+                                {
+                                    <span>Next: Review & Send</span>
+                                }
                             </button>
+                            @if (currentValidationResult != null && currentValidationResult.Warnings.Any() && currentValidationResult.IsValid)
+                            {
+                                <div class="mt-2">
+                                    <small class="text-warning">
+                                        <i class="bi bi-exclamation-circle"></i> 
+                                        There are warnings, but you can proceed.
+                                    </small>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -307,22 +403,160 @@
                                         <td>@appointmentDate.ToString("dddd, MMMM dd, yyyy") at @startTime.ToString("h:mm tt")</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Duration:</strong></td>
+                                        <td><strong>Time Range:</strong></td>
+                                        <td>@startTime.ToString("h:mm tt") - @endTime.ToString("h:mm tt")</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Duration per Appointment:</strong></td>
                                         <td>@selectedAppointmentType?.Duration minutes</td>
                                     </tr>
                                     <tr>
-                                        <td><strong>Contacts:</strong></td>
+                                        <td><strong>Contacts to Schedule:</strong></td>
                                         <td>@selectedContacts.Count contact(s)</td>
                                     </tr>
                                 </table>
+
+                                <!-- Scheduling Validation Summary -->
+                                @if (currentValidationResult != null)
+                                {
+                                    <div class="mt-3">
+                                        <h6>Scheduling Validation</h6>
+                                        @if (currentValidationResult.IsValid)
+                                        {
+                                            <div class="alert alert-success py-2">
+                                                <i class="bi bi-check-circle"></i>
+                                                <strong>All scheduling constraints satisfied</strong>
+                                                @if (currentValidationResult.Warnings.Any())
+                                                {
+                                                    <br>
+                                                    @foreach (var warning in currentValidationResult.Warnings)
+                                                    {
+                                                        <small class="text-warning">
+                                                            <i class="bi bi-exclamation-circle"></i> @warning
+                                                        </small><br>
+                                                    }
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-danger py-2">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                <strong>Scheduling issues detected</strong><br>
+                                                @foreach (var error in currentValidationResult.Errors)
+                                                {
+                                                    <small>• @error</small><br>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                <!-- Business Rules Applied -->
+                                @if (selectedAppointmentType != null)
+                                {
+                                    <div class="mt-3">
+                                        <h6>Business Rules Applied</h6>
+                                        <div class="small">
+                                            @if (workingHours?.MorningSession != null)
+                                            {
+                                                <p class="mb-1">
+                                                    <i class="bi bi-clock"></i>
+                                                    <strong>Working Hours:</strong> 
+                                                    @workingHours.MorningSession.Start.ToString("HH:mm") - 
+                                                    @workingHours.MorningSession.End.ToString("HH:mm")
+                                                </p>
+                                            }
+                                            
+                                            @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0 || selectedAppointmentType.BufferTimeAfterMinutes > 0)
+                                            {
+                                                <p class="mb-1">
+                                                    <i class="bi bi-arrows-expand"></i>
+                                                    <strong>Buffer Times:</strong>
+                                                    @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0)
+                                                    {
+                                                        <span>@selectedAppointmentType.BufferTimeBeforeMinutes min before</span>
+                                                    }
+                                                    @if (selectedAppointmentType.BufferTimeAfterMinutes > 0)
+                                                    {
+                                                        @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0) { <span>, </span> }
+                                                        <span>@selectedAppointmentType.BufferTimeAfterMinutes min after</span>
+                                                    }
+                                                </p>
+                                            }
+                                            
+                                            @if (selectedAppointmentType.SchedulingPriority != 5)
+                                            {
+                                                <p class="mb-1">
+                                                    <i class="bi bi-star"></i>
+                                                    <strong>Priority Level:</strong> @selectedAppointmentType.SchedulingPriority
+                                                </p>
+                                            }
+                                            
+                                            <p class="mb-1">
+                                                <i class="bi bi-calendar-check"></i>
+                                                <strong>Date Validation:</strong> @(SchedulingRulesService.IsDateAvailable(appointmentDate) ? "Available" : "Holiday/Blackout")
+                                            </p>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                             <div class="col-md-6">
                                 <h5>SMS Messages Preview</h5>
+                                
+                                @if (usedFallbackPreview && previewMessages.Any())
+                                {
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <strong>Scheduling Conflicts Detected</strong><br>
+                                        No appointments could be scheduled for the requested time range. The messages below are samples showing what would be sent if scheduling was successful.
+                                        
+                                        @if (schedulingConflictReasons.Any())
+                                        {
+                                            <div class="mt-2">
+                                                <strong>Issues found:</strong>
+                                                <ul class="mb-2">
+                                                    @foreach (var reason in schedulingConflictReasons.Take(5))
+                                                    {
+                                                        <li>@reason</li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                        
+                                        @if (suggestedAlternatives.Any())
+                                        {
+                                            <div class="mt-2">
+                                                <strong>Alternative time slots available today:</strong>
+                                                <div class="row mt-1">
+                                                    @foreach (var alternative in suggestedAlternatives.Take(4))
+                                                    {
+                                                        <div class="col-md-6 mb-1">
+                                                            <button type="button" class="btn btn-sm btn-outline-success w-100" 
+                                                                    @onclick="() => SelectSuggestedTimeRange(alternative)">
+                                                                @alternative.Start.ToString("HH:mm") - @alternative.End.ToString("HH:mm")
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                        
+                                        <strong>Other options:</strong>
+                                        <ul class="mb-0 mt-1">
+                                            <li>Adjusting the time range</li>
+                                            <li>Selecting a different date</li>
+                                            <li>Adding more leaders</li>
+                                            <li>Reducing the number of contacts</li>
+                                        </ul>
+                                    </div>
+                                }
+                                
                                 @if (previewMessages.Any())
                                 {
                                     @foreach (var message in previewMessages)
                                     {
-                                        <div class="card mb-2 @(message.IsMinorNotification ? "border-info" : "border-primary")">
+                                        <div class="card mb-2 @(message.IsMinorNotification ? "border-info" : (usedFallbackPreview ? "border-warning" : "border-primary"))">
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-start">
                                                     <div>
@@ -330,6 +564,10 @@
                                                         @if (message.IsMinorNotification)
                                                         {
                                                             <span class="badge bg-info">Parent Notification</span>
+                                                        }
+                                                        @if (usedFallbackPreview)
+                                                        {
+                                                            <span class="badge bg-warning">Sample Message</span>
                                                         }
                                                     </div>
                                                     <small class="text-muted">@message.PhoneNumber</small>
@@ -355,13 +593,32 @@
 
                         <div class="mt-3">
                             <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-success" @onclick="CreateAppointment" disabled="@isCreatingAppointment">
+                            <button class="btn @(usedFallbackPreview ? "btn-warning" : "btn-success")" 
+                                    @onclick="CreateAppointment" 
+                                    disabled="@isCreatingAppointment">
                                 @if (isCreatingAppointment)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                                 }
-                                Create Appointment & Send Messages
+                                @if (usedFallbackPreview)
+                                {
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <span>Attempt to Create Appointments</span>
+                                }
+                                else
+                                {
+                                    <span>Create Appointment & Send Messages</span>
+                                }
                             </button>
+                            @if (usedFallbackPreview)
+                            {
+                                <div class="mt-2">
+                                    <small class="text-warning">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Warning: Scheduling conflicts detected. The system will attempt to create appointments but some contacts may not be scheduled.
+                                    </small>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>
@@ -395,6 +652,11 @@
         color: #0d6efd;
         font-weight: bold;
     }
+    
+    .is-warning {
+        border-color: #ffc107;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+    }
 </style>
 
 @code {
@@ -411,6 +673,11 @@
     private List<Contact> selectedContacts = new();
     private List<Leader> selectedLeaders = new();
     
+    // Scheduling feedback
+    private bool usedFallbackPreview = false;
+    private List<string> schedulingConflictReasons = new();
+    private List<TimeRange> suggestedAlternatives = new();
+    
     // Filters and search
     private string contactSearchTerm = "";
     private string contactGenderFilter = "";
@@ -424,10 +691,17 @@
     
     // State
     private bool isCreatingAppointment = false;
+    
+    // TimePeriod and business rules
+    private WorkingHours workingHours = new();
+    private ValidationResult currentValidationResult = new();
+    private List<TimeRange> alternativeTimeSlots = new();
+    private bool showAlternatives = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+        await LoadSchedulingConfiguration();
     }
 
     private async Task LoadData()
@@ -453,6 +727,32 @@
             .Where(t => t.UserId == currentUser.Id)
             .OrderBy(t => t.Name)
             .ToListAsync();
+    }
+
+    private Task LoadSchedulingConfiguration()
+    {
+        try
+        {
+            // Load default working hours from scheduling rules service
+            workingHours = SchedulingRulesService.GetDefaultWorkingHours();
+            
+            // Reset validation state
+            currentValidationResult = new ValidationResult();
+            alternativeTimeSlots.Clear();
+            showAlternatives = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load scheduling configuration");
+            // Fallback to basic working hours if service fails
+            workingHours = new WorkingHours
+            {
+                MorningSession = new TimeRange(DateTime.Today.Add(new TimeSpan(9, 0, 0)), DateTime.Today.Add(new TimeSpan(17, 0, 0))),
+                BreakTimes = new TimePeriodCollection()
+            };
+        }
+        
+        return Task.CompletedTask;
     }
 
     private IEnumerable<Contact> filteredContacts
@@ -492,6 +792,11 @@
     private AppointmentType? selectedAppointmentType => 
         selectedAppointmentTypeId.HasValue ? appointmentTypes.FirstOrDefault(t => t.Id == selectedAppointmentTypeId.Value) : null;
 
+    private bool IsStep3Valid()
+    {
+        return currentValidationResult == null || currentValidationResult.IsValid;
+    }
+
     private static DateTime GetNextSunday()
     {
         var today = DateTime.Today;
@@ -499,12 +804,184 @@
         return daysUntilSunday == 0 ? today.AddDays(7) : today.AddDays(daysUntilSunday); // If today is Sunday, get next Sunday
     }
 
-    // Navigation methods
-    private void NextStep()
+    private string GetTimeInputClass(string inputType)
     {
-        if (currentStep == 3)
+        if (currentValidationResult == null || currentValidationResult.IsValid) 
+            return "";
+            
+        // Apply error styling if there are validation errors
+        return currentValidationResult.Errors.Any() ? "is-invalid" : 
+               currentValidationResult.Warnings.Any() ? "is-warning" : "";
+    }
+
+    private Task OnTimeRangeChanged()
+    {
+        return ValidateCurrentTimeRange();
+    }
+
+    private async Task ValidateCurrentTimeRange()
+    {
+        currentValidationResult = new ValidationResult();
+        alternativeTimeSlots.Clear();
+        showAlternatives = false;
+
+        if (selectedAppointmentType == null || !selectedLeaders.Any())
+            return;
+
+        try
         {
-            GenerateSmsPreview();
+            var proposedStartTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+            var proposedEndTime = appointmentDate.Date.Add(endTime.ToTimeSpan());
+
+            // Basic validation
+            if (proposedStartTime >= proposedEndTime)
+            {
+                currentValidationResult.AddError("Start time must be before end time");
+                return;
+            }
+
+            if (proposedStartTime < DateTime.Now)
+            {
+                currentValidationResult.AddError("Cannot schedule appointments in the past");
+                return;
+            }
+
+            // Validate time range is sufficient for appointments
+            var timeRangeDuration = (proposedEndTime - proposedStartTime).TotalMinutes;
+            var appointmentDuration = selectedAppointmentType.Duration;
+            
+            if (timeRangeDuration < appointmentDuration)
+            {
+                currentValidationResult.AddError($"Time range ({timeRangeDuration:F0} minutes) is too short for a {appointmentDuration}-minute appointment");
+                return;
+            }
+
+            // Check if time range allows for at least the number of selected contacts
+            var maxPossibleAppointments = (int)(timeRangeDuration / appointmentDuration) * selectedLeaders.Count;
+            if (maxPossibleAppointments < selectedContacts.Count)
+            {
+                currentValidationResult.AddWarning($"Time range may be insufficient for all {selectedContacts.Count} contacts. Consider extending the time range or adding more leaders.");
+            }
+
+            // Check date availability
+            if (!SchedulingRulesService.IsDateAvailable(appointmentDate))
+            {
+                currentValidationResult.AddError("Selected date is not available (holiday or blackout period)");
+                return;
+            }
+
+            // Validate the time range for each selected leader
+            var timeRange = proposedStartTime.ToTimeRange(selectedAppointmentType.Duration);
+            var hasAvailableLeader = false;
+            var allLeaderErrors = new List<string>();
+
+            foreach (var leader in selectedLeaders)
+            {
+                var existingAppointments = await DbContext.Appointments
+                    .Include(a => a.AppointmentType)
+                    .Where(a => a.LeaderId == leader.Id && a.ScheduledTime.Date == appointmentDate)
+                    .ToListAsync();
+
+                var leaderValidation = SchedulingRulesService.ValidateSchedulingConstraints(
+                    timeRange, selectedAppointmentType, leader.Id, existingAppointments, workingHours);
+
+                if (leaderValidation.IsValid)
+                {
+                    hasAvailableLeader = true;
+                    // Merge any warnings
+                    currentValidationResult.Warnings.AddRange(leaderValidation.Warnings);
+                }
+                else
+                {
+                    allLeaderErrors.AddRange(leaderValidation.Errors.Select(e => $"{leader.Name}: {e}"));
+                }
+            }
+
+            if (!hasAvailableLeader)
+            {
+                currentValidationResult.Errors.AddRange(allLeaderErrors.Take(3)); // Show first 3 errors
+                
+                // Load alternative suggestions
+                await LoadAlternativeTimeSlots();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error validating time range");
+            currentValidationResult.AddError("Error validating time range");
+        }
+    }
+
+    private async Task LoadAlternativeTimeSlots()
+    {
+        try
+        {
+            if (selectedAppointmentType == null || !selectedLeaders.Any())
+                return;
+
+            alternativeTimeSlots.Clear();
+            var allAlternatives = new List<TimeRange>();
+
+            var proposedStartTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+
+            foreach (var leader in selectedLeaders)
+            {
+                var existingAppointments = await DbContext.Appointments
+                    .Include(a => a.AppointmentType)
+                    .Where(a => a.LeaderId == leader.Id)
+                    .ToListAsync();
+
+                var alternatives = SchedulingRulesService.SuggestAlternativeTimeSlots(
+                    proposedStartTime, selectedAppointmentType, leader.Id, existingAppointments, 1, workingHours);
+
+                allAlternatives.AddRange(alternatives);
+            }
+
+            // Remove duplicates and sort by time
+            alternativeTimeSlots = allAlternatives
+                .GroupBy(slot => new { slot.Start, slot.End })
+                .Select(g => g.First())
+                .OrderBy(slot => slot.Start)
+                .Take(6)
+                .ToList();
+
+            showAlternatives = alternativeTimeSlots.Any();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading alternative time slots");
+        }
+    }
+
+    private async Task SelectAlternativeTimeSlot(TimeRange timeSlot)
+    {
+        startTime = TimeOnly.FromDateTime(timeSlot.Start);
+        endTime = TimeOnly.FromDateTime(timeSlot.End);
+        showAlternatives = false;
+        await OnTimeRangeChanged();
+    }
+
+    private async Task SelectSuggestedTimeRange(TimeRange timeRange)
+    {
+        startTime = TimeOnly.FromDateTime(timeRange.Start);
+        endTime = TimeOnly.FromDateTime(timeRange.End);
+        usedFallbackPreview = false;
+        schedulingConflictReasons.Clear();
+        suggestedAlternatives.Clear();
+        await GenerateSmsPreview(); // Re-generate preview with new time range
+    }
+
+    // Navigation methods
+    private async Task NextStep()
+    {
+        if (currentStep == 2)
+        {
+            // Validate time range when entering Step 3
+            await ValidateCurrentTimeRange();
+        }
+        else if (currentStep == 3)
+        {
+            await GenerateSmsPreview();
         }
         currentStep++;
     }
@@ -538,38 +1015,213 @@
     }
 
 
-    private void GenerateSmsPreview()
+    private async Task GenerateSmsPreview()
     {
         if (selectedContacts.Count == 0 || !selectedLeaders.Any() || selectedAppointmentType == null)
         {
+            Logger.LogWarning("Cannot generate SMS preview: missing required data (Contacts: {ContactCount}, Leaders: {LeaderCount}, AppointmentType: {HasType})", 
+                selectedContacts.Count, selectedLeaders.Count, selectedAppointmentType != null);
             previewMessages = new List<SmsMessage>();
             return;
         }
 
+        Logger.LogInformation("Generating SMS preview for {ContactCount} contacts with {LeaderCount} leaders", 
+            selectedContacts.Count, selectedLeaders.Count);
+
         // Generate preview messages for automatic scheduling
-        previewMessages = GenerateAutoSchedulePreview();
+        previewMessages = await GenerateAutoSchedulePreview();
+        
+        Logger.LogInformation("Generated {MessageCount} SMS preview messages", previewMessages.Count);
     }
 
-    private List<SmsMessage> GenerateAutoSchedulePreview()
+    private async Task<List<SmsMessage>> GenerateAutoSchedulePreview()
     {
         var messages = new List<SmsMessage>();
-        var scheduledAppointments = GenerateSchedulePlan();
+        var scheduledAppointments = await GenerateEnhancedSchedulePlan();
         
-        foreach (var scheduled in scheduledAppointments)
+        Logger.LogInformation("Generated {ScheduledCount} scheduled appointments for preview", scheduledAppointments.Count);
+        
+        if (scheduledAppointments.Any())
         {
-            var contact = selectedContacts.First(c => c.Id == scheduled.ContactId);
-            var leader = selectedLeaders.First(l => l.Id == scheduled.LeaderId);
+            usedFallbackPreview = false;
+            // Generate messages for scheduled appointments
+            foreach (var scheduled in scheduledAppointments)
+            {
+                var contact = selectedContacts.First(c => c.Id == scheduled.ContactId);
+                var leader = selectedLeaders.First(l => l.Id == scheduled.LeaderId);
+                
+                var contactMessages = SmsService.GenerateAppointmentMessages(
+                    new List<Contact> { contact }, 
+                    leader, 
+                    selectedAppointmentType!, 
+                    scheduled.ScheduledTime);
+                
+                messages.AddRange(contactMessages);
+            }
+        }
+        else
+        {
+            usedFallbackPreview = true;
+            schedulingConflictReasons = await AnalyzeSchedulingConflicts();
+            suggestedAlternatives = await GenerateSuggestedAlternatives();
+            Logger.LogWarning("No appointments could be scheduled - generating fallback preview. Reasons: {Reasons}", 
+                string.Join("; ", schedulingConflictReasons));
             
-            var contactMessages = SmsService.GenerateAppointmentMessages(
-                new List<Contact> { contact }, 
-                leader, 
-                selectedAppointmentType!, 
-                scheduled.ScheduledTime);
-            
-            messages.AddRange(contactMessages);
+            // Fallback: Generate sample messages using the first contact and leader with the requested start time
+            // This helps users see what the messages would look like even if scheduling conflicts exist
+            if (selectedContacts.Any() && selectedLeaders.Any() && selectedAppointmentType != null)
+            {
+                var sampleStartTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+                var firstContact = selectedContacts.First();
+                var firstLeader = selectedLeaders.First();
+                
+                var fallbackMessages = SmsService.GenerateAppointmentMessages(
+                    new List<Contact> { firstContact }, 
+                    firstLeader, 
+                    selectedAppointmentType, 
+                    sampleStartTime);
+                
+                // Mark these as sample messages
+                foreach (var msg in fallbackMessages)
+                {
+                    msg.Message = "[SAMPLE] " + msg.Message;
+                }
+                
+                messages.AddRange(fallbackMessages);
+                Logger.LogInformation("Generated {FallbackCount} fallback sample messages", fallbackMessages.Count);
+            }
         }
         
         return messages;
+    }
+
+    private async Task<List<ScheduledAppointment>> GenerateEnhancedSchedulePlan()
+    {
+        var plan = new List<ScheduledAppointment>();
+        
+        if (selectedAppointmentType == null || !selectedLeaders.Any() || !selectedContacts.Any())
+        {
+            Logger.LogWarning("Cannot generate schedule plan: missing required data");
+            return plan;
+        }
+
+        var requestedStartTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+        var requestedEndTime = appointmentDate.Date.Add(endTime.ToTimeSpan());
+        
+        Logger.LogInformation("Generating schedule plan for {ContactCount} contacts, {LeaderCount} leaders, on {Date} from {StartTime} to {EndTime}", 
+            selectedContacts.Count, selectedLeaders.Count, appointmentDate.ToString("yyyy-MM-dd"), 
+            startTime.ToString("HH:mm"), endTime.ToString("HH:mm"));
+
+        try
+        {
+            var timeSlotDuration = selectedAppointmentType.Duration;
+            var scheduledTimes = new HashSet<(int leaderId, DateTime time)>();
+            var unscheduledContacts = new List<string>();
+
+            foreach (var contact in selectedContacts)
+            {
+                var assigned = false;
+                Logger.LogDebug("Trying to schedule contact: {ContactName}", contact.FullName);
+
+                foreach (var leader in selectedLeaders)
+                {
+                    // Get existing appointments for this leader
+                    var existingAppointments = await DbContext.Appointments
+                        .Include(a => a.AppointmentType)
+                        .Where(a => a.LeaderId == leader.Id && a.ScheduledTime.Date == appointmentDate)
+                        .ToListAsync();
+
+                    Logger.LogDebug("Leader {LeaderName} has {ExistingCount} existing appointments on {Date}", 
+                        leader.Name, existingAppointments.Count, appointmentDate.ToString("yyyy-MM-dd"));
+
+                    // Get available slots using SchedulingRulesService
+                    var availableSlots = SchedulingRulesService.GetAvailableSlots(
+                        appointmentDate, selectedAppointmentType, leader.Id, existingAppointments, workingHours);
+
+                    Logger.LogDebug("Found {AvailableCount} available slots for leader {LeaderName}", 
+                        availableSlots.Count, leader.Name);
+
+                    // Log the raw available slots for debugging
+                    foreach (var slot in availableSlots.Take(5)) // Log first 5 slots
+                    {
+                        Logger.LogDebug("Available slot for {LeaderName}: {SlotStart} - {SlotEnd} (Duration: {Duration} min)", 
+                            leader.Name, slot.Start.ToString("HH:mm"), slot.End.ToString("HH:mm"), 
+                            (slot.End - slot.Start).TotalMinutes);
+                    }
+
+                    Logger.LogDebug("Requested time range: {RequestedStart} - {RequestedEnd}, Appointment duration: {Duration} min", 
+                        requestedStartTime.ToString("HH:mm"), requestedEndTime.ToString("HH:mm"), timeSlotDuration);
+
+                    // Filter slots within the requested time range - allow appointments that start within range
+                    var filteredSlots = availableSlots
+                        .Where(slot => {
+                            var appointmentEnd = slot.Start.AddMinutes(timeSlotDuration);
+                            var startsInRange = slot.Start >= requestedStartTime;
+                            var fitsInRange = appointmentEnd <= requestedEndTime;
+                            
+                            Logger.LogDebug("Evaluating slot {SlotStart}: starts in range={StartsInRange}, fits in range={FitsInRange}, appointment would end at {AppointmentEnd}", 
+                                slot.Start.ToString("HH:mm"), startsInRange, fitsInRange, appointmentEnd.ToString("HH:mm"));
+                                
+                            return startsInRange && fitsInRange;
+                        })
+                        .OrderBy(slot => slot.Start)
+                        .ToList();
+
+                    Logger.LogDebug("After filtering to requested time range, {FilteredCount} slots remain for leader {LeaderName}", 
+                        filteredSlots.Count, leader.Name);
+                    
+                    if (filteredSlots.Count == 0)
+                    {
+                        Logger.LogWarning("No available slots for leader {LeaderName} in requested time range {Start}-{End}. Total available slots: {TotalSlots}", 
+                            leader.Name, requestedStartTime.ToString("HH:mm"), requestedEndTime.ToString("HH:mm"), availableSlots.Count);
+                    }
+
+                    foreach (var slot in filteredSlots)
+                    {
+                        var slotKey = (leader.Id, slot.Start);
+                        
+                        if (!scheduledTimes.Contains(slotKey))
+                        {
+                            plan.Add(new ScheduledAppointment
+                            {
+                                ContactId = contact.Id,
+                                LeaderId = leader.Id,
+                                ScheduledTime = slot.Start
+                            });
+                            
+                            scheduledTimes.Add(slotKey);
+                            assigned = true;
+                            Logger.LogDebug("Scheduled {ContactName} with {LeaderName} at {ScheduledTime}", 
+                                contact.FullName, leader.Name, slot.Start.ToString("HH:mm"));
+                            break;
+                        }
+                    }
+
+                    if (assigned) break;
+                }
+
+                if (!assigned)
+                {
+                    unscheduledContacts.Add(contact.FullName);
+                    Logger.LogWarning("Could not schedule contact: {ContactName}", contact.FullName);
+                    // Could not schedule this contact - no available slots
+                    break;
+                }
+            }
+            
+            if (unscheduledContacts.Any())
+            {
+                Logger.LogWarning("Unable to schedule {UnscheduledCount} contacts: {UnscheduledNames}", 
+                    unscheduledContacts.Count, string.Join(", ", unscheduledContacts));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating enhanced schedule plan");
+        }
+
+        Logger.LogInformation("Generated schedule plan with {PlanCount} appointments", plan.Count);
+        return plan;
     }
 
     private List<ScheduledAppointment> GenerateSchedulePlan()
@@ -815,35 +1467,177 @@
         return plan;
     }
 
-    private async Task<bool> IsLeaderAvailableAtTime(Leader leader, DateTime startTime, int durationMinutes)
+    private async Task<ValidationResult> ValidateAppointmentSlot(Leader leader, DateTime startTime, int durationMinutes, AppointmentType appointmentType)
     {
         try
         {
-            var endTime = startTime.AddMinutes(durationMinutes);
+            var appointmentTimeRange = startTime.ToTimeRange(durationMinutes);
             
-            // Check existing appointments in database
-            var hasExistingAppt = await DbContext.Appointments
-                .AnyAsync(a => a.LeaderId == leader.Id && 
-                             a.ScheduledTime < endTime && 
-                             a.ScheduledTime.AddMinutes(selectedAppointmentType!.Duration) > startTime);
-            
-            if (hasExistingAppt)
-                return false;
-                
-            // Check Google Calendar if available
-            if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
+            // Get existing appointments for this leader
+            var existingAppointments = await DbContext.Appointments
+                .Include(a => a.AppointmentType)
+                .Where(a => a.LeaderId == leader.Id && 
+                           a.ScheduledTime.Date == startTime.Date)
+                .ToListAsync();
+
+            // Use comprehensive validation from SchedulingRulesService
+            var validationResult = SchedulingRulesService.ValidateSchedulingConstraints(
+                appointmentTimeRange,
+                appointmentType,
+                leader.Id,
+                existingAppointments,
+                workingHours);
+
+            // Additional Google Calendar check if available
+            if (validationResult.IsValid && !string.IsNullOrEmpty(leader.GoogleCalendarId))
             {
-                return await CalendarService.IsTimeSlotAvailableAsync(
+                var endTime = startTime.AddMinutes(durationMinutes);
+                var isCalendarAvailable = await CalendarService.IsTimeSlotAvailableAsync(
                     leader.GoogleCalendarId, 
                     startTime, 
                     endTime);
+                
+                if (!isCalendarAvailable)
+                {
+                    validationResult.AddError($"Leader {leader.Name} has a calendar conflict at {startTime:HH:mm}");
+                }
             }
-            
-            return true; // If no calendar, assume available
+
+            return validationResult;
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // If error checking, assume not available for safety
+            Logger.LogError(ex, $"Error validating appointment slot for leader {leader.Id}");
+            var errorResult = new ValidationResult();
+            errorResult.AddError("Unable to validate appointment slot due to system error");
+            return errorResult;
         }
+    }
+
+    private async Task<bool> IsLeaderAvailableAtTime(Leader leader, DateTime startTime, int durationMinutes)
+    {
+        if (selectedAppointmentType == null) return false;
+        
+        var validationResult = await ValidateAppointmentSlot(leader, startTime, durationMinutes, selectedAppointmentType);
+        return validationResult.IsValid;
+    }
+
+    private async Task<List<string>> AnalyzeSchedulingConflicts()
+    {
+        var reasons = new List<string>();
+        
+        if (selectedAppointmentType == null || !selectedLeaders.Any() || !selectedContacts.Any())
+        {
+            return reasons;
+        }
+
+        var requestedStartTime = appointmentDate.Date.Add(startTime.ToTimeSpan());
+        var requestedEndTime = appointmentDate.Date.Add(endTime.ToTimeSpan());
+        var timeRangeDuration = (requestedEndTime - requestedStartTime).TotalMinutes;
+        var appointmentDuration = selectedAppointmentType.Duration;
+
+        // Check basic time range issues
+        if (timeRangeDuration < appointmentDuration)
+        {
+            reasons.Add($"Time range ({timeRangeDuration:F0} min) too short for {appointmentDuration}-min appointments");
+            return reasons;
+        }
+
+        var totalAvailableSlots = 0;
+        var leadersWithNoSlots = 0;
+
+        foreach (var leader in selectedLeaders)
+        {
+            var existingAppointments = await DbContext.Appointments
+                .Include(a => a.AppointmentType)
+                .Where(a => a.LeaderId == leader.Id && a.ScheduledTime.Date == appointmentDate)
+                .ToListAsync();
+
+            var availableSlots = SchedulingRulesService.GetAvailableSlots(
+                appointmentDate, selectedAppointmentType, leader.Id, existingAppointments, workingHours);
+
+            var filteredSlots = availableSlots
+                .Where(slot => slot.Start >= requestedStartTime && slot.Start.AddMinutes(appointmentDuration) <= requestedEndTime)
+                .ToList();
+
+            totalAvailableSlots += filteredSlots.Count;
+
+            if (filteredSlots.Count == 0)
+            {
+                leadersWithNoSlots++;
+                
+                // Check specific reasons for this leader
+                if (existingAppointments.Any())
+                {
+                    reasons.Add($"{leader.Name}: has {existingAppointments.Count} existing appointments on this date");
+                }
+                
+                if (availableSlots.Count > 0 && filteredSlots.Count == 0)
+                {
+                    reasons.Add($"{leader.Name}: available slots fall outside requested time range");
+                }
+            }
+        }
+
+        // Overall capacity issues
+        if (totalAvailableSlots < selectedContacts.Count)
+        {
+            reasons.Add($"Only {totalAvailableSlots} available slots for {selectedContacts.Count} contacts");
+        }
+
+        if (leadersWithNoSlots == selectedLeaders.Count)
+        {
+            reasons.Add("No leaders have availability in the requested time range");
+        }
+
+        return reasons.Distinct().ToList();
+    }
+
+    private async Task<List<TimeRange>> GenerateSuggestedAlternatives()
+    {
+        var alternatives = new List<TimeRange>();
+        
+        if (selectedAppointmentType == null || !selectedLeaders.Any())
+        {
+            return alternatives;
+        }
+
+        var appointmentDuration = selectedAppointmentType.Duration;
+        var requestedDuration = (endTime.ToTimeSpan() - startTime.ToTimeSpan()).TotalMinutes;
+        
+        // Look for alternative time slots on the same day
+        foreach (var leader in selectedLeaders.Take(2)) // Check first 2 leaders to avoid too many API calls
+        {
+            var existingAppointments = await DbContext.Appointments
+                .Include(a => a.AppointmentType)
+                .Where(a => a.LeaderId == leader.Id && a.ScheduledTime.Date == appointmentDate)
+                .ToListAsync();
+
+            var availableSlots = SchedulingRulesService.GetAvailableSlots(
+                appointmentDate, selectedAppointmentType, leader.Id, existingAppointments, workingHours);
+
+            // Find slots that can fit our requested duration
+            foreach (var slot in availableSlots.Take(10)) // Limit to avoid performance issues
+            {
+                var slotDuration = (slot.End - slot.Start).TotalMinutes;
+                if (slotDuration >= requestedDuration)
+                {
+                    // Create a suggested time range with the same duration as requested
+                    var suggestedEnd = slot.Start.AddMinutes(requestedDuration);
+                    if (suggestedEnd <= slot.End)
+                    {
+                        alternatives.Add(new TimeRange(slot.Start, suggestedEnd));
+                    }
+                }
+            }
+        }
+
+        // Remove duplicates and sort by start time
+        return alternatives
+            .GroupBy(alt => new { alt.Start, alt.End })
+            .Select(g => g.First())
+            .OrderBy(alt => alt.Start)
+            .Take(6) // Show max 6 alternatives
+            .ToList();
     }
 }

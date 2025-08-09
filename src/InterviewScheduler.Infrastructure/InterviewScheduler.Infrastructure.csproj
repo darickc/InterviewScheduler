@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.2.0" />
+    <PackageReference Include="TimePeriodLibrary.NET" Version="2.1.6" />
   </ItemGroup>
 
   <PropertyGroup>

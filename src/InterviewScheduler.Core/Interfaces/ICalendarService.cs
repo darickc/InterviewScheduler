@@ -1,14 +1,27 @@
 using InterviewScheduler.Core.Entities;
+using Itenso.TimePeriod;
 
 namespace InterviewScheduler.Core.Interfaces;
 
 public interface ICalendarService
 {
+    // Existing DateTime-based methods for backward compatibility
     Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime);
     Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes);
+    
+    // New TimePeriod-aware methods
+    Task<bool> IsTimeSlotAvailableAsync(string calendarId, ITimePeriod timeRange);
+    Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes, WorkingHours? workingHours);
+    Task<List<TimeSlot>> GetAvailableTimeSlotsForLeaderAsync(string calendarId, int leaderId, string leaderName, DateTime startDate, DateTime endDate, int durationMinutes, WorkingHours? workingHours = null);
+    Task<TimePeriodCollection> GetConflictingPeriodsAsync(string calendarId, ITimePeriod timeRange);
+    Task<List<Appointment>> FindConflictingAppointmentsAsync(string calendarId, AppointmentTimeRange appointmentTimeRange, IEnumerable<Appointment> existingAppointments);
+    
+    // Event management methods
     Task<string> CreateEventAsync(string calendarId, Appointment appointment);
     Task<bool> UpdateEventAsync(string calendarId, string eventId, Appointment appointment);
     Task<bool> DeleteEventAsync(string calendarId, string eventId);
+    
+    // Authentication methods
     Task<string> GetAuthorizationUrlAsync(string redirectUri);
     Task<bool> ProcessAuthorizationCodeAsync(string code, string redirectUri);
     Task<bool> IsAuthenticatedAsync();
@@ -16,14 +29,7 @@ public interface ICalendarService
     Task<List<CalendarInfo>> GetCalendarsAsync();
 }
 
-public class TimeSlot
-{
-    public DateTime StartTime { get; set; }
-    public DateTime EndTime { get; set; }
-    public bool IsAvailable { get; set; }
-    public int LeaderId { get; set; }
-    public string LeaderName { get; set; } = string.Empty;
-}
+// TimeSlot class moved to InterviewScheduler.Core.Entities.TimeSlot
 
 public class CalendarInfo
 {

@@ -88,6 +88,19 @@ public class GoogleCalendarService : ICalendarService
         return Task.FromResult(true);
     }
 
+    public async Task<List<LeaderTimeRange>> GetCalendarEventsAsync(string calendarId, string leaderName, int leaderId, DateTime startTime, DateTime endTime)
+    {
+        await EnsureAuthenticatedAsync();
+        var request = _calendarService!.Events.List(calendarId);
+        request.TimeMinDateTimeOffset = startTime;
+        request.TimeMaxDateTimeOffset = endTime;
+        request.SingleEvents = true;
+
+        var events = await request.ExecuteAsync();
+        var eventItems = events.Items.Select(e => new LeaderTimeRange(e.Start.DateTimeDateTimeOffset?.DateTime ?? startTime, e.End.DateTimeDateTimeOffset?.DateTime ?? endTime, leaderId, leaderName, calendarId)).ToList();
+        return eventItems;
+    }
+
     public async Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime)
     {
         await EnsureAuthenticatedAsync();

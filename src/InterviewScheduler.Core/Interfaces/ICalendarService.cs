@@ -1,4 +1,5 @@
 using InterviewScheduler.Core.Entities;
+using InterviewScheduler.Core.Helpers;
 using Itenso.TimePeriod;
 
 namespace InterviewScheduler.Core.Interfaces;
@@ -8,6 +9,7 @@ public interface ICalendarService
     // Existing DateTime-based methods for backward compatibility
     Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime);
     Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes);
+    Task<List<LeaderTimeRange>> GetCalendarEventsAsync(string calendarId, string leaderName, int leaderId, DateTime startTime, DateTime endTime);
     
     // New TimePeriod-aware methods
     Task<bool> IsTimeSlotAvailableAsync(string calendarId, ITimePeriod timeRange);

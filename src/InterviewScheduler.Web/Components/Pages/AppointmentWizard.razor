@@ -16,6 +16,7 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<AppointmentWizard> Logger
 @inject IUserService UserService
+@inject ISchedulingService SchedulingService
 @rendermode InteractiveServer
 
 <PageTitle>Schedule Appointment</PageTitle>
@@ -698,6 +699,8 @@
     private List<TimeRange> alternativeTimeSlots = new();
     private bool showAlternatives = false;
 
+   
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -1295,94 +1298,17 @@
         if (selectedContacts.Count == 0 || !selectedLeaders.Any() || selectedAppointmentType == null)
             return;
 
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-
         isCreatingAppointment = true;
-        try
-        {
-            // Generate the scheduling plan with real availability checking
-            var schedulePlan = await GenerateRealSchedulePlan();
-            var appointmentsCreated = 0;
-            var calendarEventsCreated = 0;
-            var unscheduledContacts = new List<string>();
-
-            // Create appointments based on the schedule plan
-            foreach (var scheduled in schedulePlan)
-            {
-                var appointment = new Appointment
-                {
-                    ContactId = scheduled.ContactId,
-                    LeaderId = scheduled.LeaderId,
-                    AppointmentTypeId = selectedAppointmentType.Id,
-                    ScheduledTime = scheduled.ScheduledTime,
-                    Status = AppointmentStatus.Pending,
-                    CreatedDate = DateTime.Now,
-                    UserId = currentUser.Id
-                };
-
-                DbContext.Appointments.Add(appointment);
-                appointmentsCreated++;
-            }
-
-            // Check for unscheduled contacts
-            var scheduledContactIds = schedulePlan.Select(s => s.ContactId).ToHashSet();
-            foreach (var contact in selectedContacts)
-            {
-                if (!scheduledContactIds.Contains(contact.Id))
-                {
-                    unscheduledContacts.Add($"{contact.FullName}");
-                }
-            }
-
-            await DbContext.SaveChangesAsync();
-
-            // Create calendar events for each scheduled appointment
-            foreach (var scheduled in schedulePlan)
-            {
-                var leader = selectedLeaders.First(l => l.Id == scheduled.LeaderId);
-                
-                if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
-                {
-                    try
-                    {
-                        var appointment = await DbContext.Appointments
-                            .Include(a => a.Contact)
-                            .Include(a => a.Leader)
-                            .Include(a => a.AppointmentType)
-                            .FirstOrDefaultAsync(a => a.ContactId == scheduled.ContactId && 
-                                                      a.LeaderId == scheduled.LeaderId &&
-                                                      a.ScheduledTime == scheduled.ScheduledTime);
-
-                        if (appointment != null)
-                        {
-                            var eventId = await CalendarService.CreateEventAsync(leader.GoogleCalendarId, appointment);
-                            if (!string.IsNullOrEmpty(eventId))
-                            {
-                                appointment.GoogleEventId = eventId;
-                                calendarEventsCreated++;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log calendar creation failure but continue
-                        Logger.LogError(ex, $"Failed to create calendar event for {leader.Name}");
-                    }
-                }
-            }
-
-            await DbContext.SaveChangesAsync();
-
-            // Generate success message
-            var message = $"Automatic scheduling completed!\n\n";
-            message += $"✅ {appointmentsCreated} appointments created\n";
-            message += $"📅 {calendarEventsCreated} calendar events created\n";
+        try{
+        var result =  await SchedulingService.CreateSchedule(appointmentDate, startTime, endTime, selectedAppointmentType, selectedLeaders, selectedContacts);   
+        var message = $"Automatic scheduling completed!\n\n";
+            message += $"✅ {result.AppointmentsCreated} appointments created\n";
+            message += $"📅 {result.CalendarEventsCreated} calendar events created\n";
             
-            if (unscheduledContacts.Any())
+            if (result.UnscheduledContacts.Any())
             {
-                message += $"\n⚠️ Could not schedule {unscheduledContacts.Count} contact(s):\n";
-                message += string.Join("\n", unscheduledContacts);
+                message += $"\n⚠️ Could not schedule {result.UnscheduledContacts.Count} contact(s):\n";
+                message += string.Join("\n", result.UnscheduledContacts);
                 message += "\n\nPlease try:\n- Selecting a different time range\n- Adding more leaders\n- Choosing a different date";
             }
             else
@@ -1418,7 +1344,7 @@
             var timeToTry = currentTime;
             
             // Try to find an available slot starting from current time
-            while (!assigned && timeToTry.AddMinutes(appointmentDuration) <= searchEnd)
+            while (!assigned && timeToTry.AddMinutes(1) <= searchEnd)
             {
                 // Check if any leader is available at this time
                 foreach (var leader in selectedLeaders)

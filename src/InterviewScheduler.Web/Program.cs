@@ -79,6 +79,7 @@ builder.Services.AddScoped<ICalendarService, GoogleCalendarService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISchedulingRulesService, SchedulingRulesService>();
+builder.Services.AddScoped<ISchedulingService, SchedulingService>();
 
 // Add authentication
 builder.Services.AddAuthentication(options =>

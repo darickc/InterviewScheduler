@@ -108,6 +108,10 @@
                                             {
                                                 @GetParentPhoneDisplay(appointment.Contact)
                                             }
+                                            else if (appointment.Contact?.IsMinor == false && appointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+                                            {
+                                                <span class="text-info">via @appointment.Contact.HeadOfHouse.FirstName: @appointment.Contact.HeadOfHouse.PhoneNumber</span>
+                                            }
                                             else
                                             {
                                                 <span>No phone</span>
@@ -253,6 +257,15 @@ else
                                                 {
                                                     <text>No parent phone</text>
                                                 }
+                                            </small>
+                                        }
+                                        else if (selectedAppointment.Contact?.IsMinor == false && selectedAppointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
+                                        {
+                                            <span class="text-muted">No direct phone</span>
+                                            <br><small class="text-info">SMS will be sent to head of household: 
+                                                <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber)" title="Click to copy">
+                                                    @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
+                                                </span>
                                             </small>
                                         }
                                         else
@@ -416,7 +429,7 @@ else
     private string viewFilter = "all";
     private string searchTerm = "";
     private string leaderFilter = "";
-    private string dateFilter = "";
+    private string dateFilter = "upcoming";
 
     protected override async Task OnInitializedAsync()
     {
@@ -610,6 +623,16 @@ else
             }
         }
 
+        // For adults without phone numbers, use head of household phone
+        if (string.IsNullOrEmpty(targetPhoneNumber) && !appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null)
+        {
+            if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+            {
+                targetPhoneNumber = appointment.Contact.HeadOfHouse.PhoneNumber;
+                // Don't set isParentMessage = true for adults, they get regular message format
+            }
+        }
+
         if (string.IsNullOrEmpty(targetPhoneNumber))
             return;
 
@@ -688,6 +711,11 @@ else
 
         // For minors, check if parent has a phone number
         if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
+            return true;
+
+        // For adults, check if head of household has a phone number
+        if (!appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
             !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
             return true;
 

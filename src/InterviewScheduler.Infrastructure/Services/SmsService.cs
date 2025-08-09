@@ -65,11 +65,13 @@ public class SmsService : ISmsService
             var hasValidContactPhone = IsValidPhoneNumber(contact.PhoneNumber);
             var hasValidParentPhone = contact.IsMinor && contact.HeadOfHouse != null && 
                                     IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber);
+            var hasValidAdultFallbackPhone = !contact.IsMinor && contact.HeadOfHouse != null && 
+                                           IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber);
 
             // Skip contacts that have no valid way to reach them
-            if (!hasValidContactPhone && !hasValidParentPhone)
+            if (!hasValidContactPhone && !hasValidParentPhone && !hasValidAdultFallbackPhone)
             {
-                _logger.LogWarning("No valid phone number for contact {ContactName}: Contact Phone: {ContactPhone}, Parent Phone: {ParentPhone}", 
+                _logger.LogWarning("No valid phone number for contact {ContactName}: Contact Phone: {ContactPhone}, Head of House Phone: {HeadOfHousePhone}", 
                     contact.FullName, contact.PhoneNumber, contact.HeadOfHouse?.PhoneNumber);
                 continue;
             }
@@ -85,6 +87,21 @@ public class SmsService : ISmsService
                     PhoneNumber = contact.PhoneNumber!,
                     Message = primaryMessage,
                     SmsLink = GenerateSmsLink(contact.PhoneNumber!, primaryMessage),
+                    IsMinorNotification = false
+                });
+            }
+
+            // Generate fallback message for adults without phone numbers using head of household phone
+            if (!hasValidContactPhone && hasValidAdultFallbackPhone)
+            {
+                var fallbackMessage = FormatMessage(appointmentType, contact, leader, scheduledTime);
+                
+                messages.Add(new SmsMessage
+                {
+                    ContactName = $"{contact.FullName} (via {contact.HeadOfHouse!.FullName})",
+                    PhoneNumber = contact.HeadOfHouse!.PhoneNumber!,
+                    Message = fallbackMessage,
+                    SmsLink = GenerateSmsLink(contact.HeadOfHouse!.PhoneNumber!, fallbackMessage),
                     IsMinorNotification = false
                 });
             }

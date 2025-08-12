@@ -860,21 +860,21 @@
             }
 
             // Check if time range allows for at least the number of selected contacts
-            var maxPossibleAppointments = (int)(timeRangeDuration / appointmentDuration) * selectedLeaders.Count;
+            @* var maxPossibleAppointments = (int)(timeRangeDuration / appointmentDuration) * selectedLeaders.Count;
             if (maxPossibleAppointments < selectedContacts.Count)
             {
                 currentValidationResult.AddWarning($"Time range may be insufficient for all {selectedContacts.Count} contacts. Consider extending the time range or adding more leaders.");
-            }
+            } *@
 
-            // Check date availability
+            @* // Check date availability
             if (!SchedulingRulesService.IsDateAvailable(appointmentDate))
             {
                 currentValidationResult.AddError("Selected date is not available (holiday or blackout period)");
                 return;
-            }
+            } *@
 
             // Validate the time range for each selected leader
-            var timeRange = proposedStartTime.ToTimeRange(selectedAppointmentType.Duration);
+            @* var timeRange = proposedStartTime.ToTimeRange(selectedAppointmentType.Duration);
             var hasAvailableLeader = false;
             var allLeaderErrors = new List<string>();
 
@@ -906,7 +906,7 @@
                 
                 // Load alternative suggestions
                 await LoadAlternativeTimeSlots();
-            }
+            } *@
         }
         catch (Exception ex)
         {

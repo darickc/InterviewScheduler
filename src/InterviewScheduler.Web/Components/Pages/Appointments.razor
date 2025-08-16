@@ -555,23 +555,35 @@ else
         
         if (confirmed)
         {
-            appointment.Status = AppointmentStatus.Cancelled;
-            
-            // Try to delete from Google Calendar
+            // Try to delete from Google Calendar first
             if (!string.IsNullOrEmpty(appointment.GoogleEventId) && !string.IsNullOrEmpty(appointment.Leader?.GoogleCalendarId))
             {
                 try
                 {
-                    await CalendarService.DeleteEventAsync(appointment.Leader.GoogleCalendarId, appointment.GoogleEventId);
+                    var deleteSuccess = await CalendarService.DeleteEventAsync(appointment.Leader.GoogleCalendarId, appointment.GoogleEventId);
+                    
+                    // Only mark as cancelled if calendar deletion succeeded or there was no calendar event
+                    if (deleteSuccess)
+                    {
+                        appointment.Status = AppointmentStatus.Cancelled;
+                        await DbContext.SaveChangesAsync();
+                        await LoadData();
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", 
+                            "Failed to remove the calendar event. The appointment has not been cancelled. Please try again or check your Google Calendar connection.");
+                        return;
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Calendar deletion failed, but appointment is still cancelled
+                    await JSRuntime.InvokeVoidAsync("alert", 
+                        $"An error occurred while removing the calendar event: {ex.Message}. The appointment has not been cancelled.");
+                    return;
                 }
             }
             
-            await DbContext.SaveChangesAsync();
-            await LoadData();
             CloseDetails();
         }
     }

@@ -1,17 +1,8 @@
 @page "/leaders"
 @attribute [Authorize]
-@using InterviewScheduler.Core.Entities
-@using InterviewScheduler.Core.Interfaces
-@using InterviewScheduler.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Components.Authorization
-@using static InterviewScheduler.Core.Interfaces.ICalendarService
-@inject ApplicationDbContext DbContext
-@inject ICalendarService CalendarService
+@inject ILeadersApiClient LeadersApi
 @inject NavigationManager Navigation
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject IUserService UserService
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 
 <PageTitle>Leaders</PageTitle>
 
@@ -131,7 +122,7 @@
 <div class="row">
     <div class="col-md-12">
         <h3>Current Leaders</h3>
-        
+
         @if (leaders.Any())
         {
             <table class="table table-striped">
@@ -178,65 +169,57 @@
 </div>
 
 @code {
-    private List<Leader> leaders = new();
-    private Leader currentLeader = new();
-    private Leader? editingLeader;
+    private List<LeaderDto> leaders = new();
+    private LeaderDto currentLeader = new() { IsActive = true };
+    private LeaderDto? editingLeader;
     private bool showForm = false;
     private bool isCalendarAuthenticated = false;
-    private List<CalendarInfo> availableCalendars = new();
+    private List<CalendarInfoDto> availableCalendars = new();
 
     protected override async Task OnInitializedAsync()
     {
         await LoadLeaders();
-        await CheckCalendarAuthentication();
-        if (isCalendarAuthenticated)
-        {
-            await LoadCalendars();
-        }
+        await LoadCalendars();
     }
 
     private async Task LoadLeaders()
     {
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-        
-        leaders = await DbContext.Leaders
-            .Where(l => l.UserId == currentUser.Id)
-            .OrderBy(l => l.Title)
-            .ToListAsync();
+        leaders = (await LeadersApi.GetAllAsync()).ToList();
     }
 
     private async Task LoadCalendars()
     {
+        // The calendar API returns the user's Google calendars when their access token is
+        // still valid. Treat a successful response as "connected"; treat any failure as a
+        // signal that the user needs to re-auth.
         try
         {
-            availableCalendars = await CalendarService.GetCalendarsAsync();
+            availableCalendars = (await LeadersApi.GetCalendarsAsync()).ToList();
+            isCalendarAuthenticated = true;
         }
-        catch (Exception ex)
+        catch
         {
-            // Log the error - in a real app, would use proper error handling
-            Console.WriteLine($"Error loading calendars: {ex.Message}");
-            availableCalendars = new List<CalendarInfo>();
+            availableCalendars = new List<CalendarInfoDto>();
+            isCalendarAuthenticated = false;
         }
     }
 
     private void ShowAddLeader()
     {
-        currentLeader = new Leader { IsActive = true };
+        currentLeader = new LeaderDto { IsActive = true };
         editingLeader = null;
         showForm = true;
     }
 
-    private void EditLeader(Leader leader)
+    private void EditLeader(LeaderDto leader)
     {
-        currentLeader = new Leader
+        currentLeader = new LeaderDto
         {
             Id = leader.Id,
             Name = leader.Name,
             Title = leader.Title,
             GoogleCalendarId = leader.GoogleCalendarId,
-            IsActive = leader.IsActive,
-            UserId = leader.UserId
+            IsActive = leader.IsActive
         };
         editingLeader = leader;
         showForm = true;
@@ -244,91 +227,38 @@
 
     private async Task SaveLeader()
     {
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-        
         if (editingLeader == null)
-        {
-            currentLeader.UserId = currentUser.Id;
-            DbContext.Leaders.Add(currentLeader);
-        }
+            await LeadersApi.CreateAsync(currentLeader);
         else
-        {
-            currentLeader.UserId = currentUser.Id; // Ensure UserId is set for updates too
-            DbContext.Entry(editingLeader).CurrentValues.SetValues(currentLeader);
-        }
+            await LeadersApi.UpdateAsync(editingLeader.Id, currentLeader);
 
-        await DbContext.SaveChangesAsync();
         await LoadLeaders();
         CancelEdit();
     }
 
-    private async Task DeleteLeader(Leader leader)
+    private async Task DeleteLeader(LeaderDto leader)
     {
-        DbContext.Leaders.Remove(leader);
-        await DbContext.SaveChangesAsync();
+        await LeadersApi.DeleteAsync(leader.Id);
         await LoadLeaders();
     }
 
     private void CancelEdit()
     {
         showForm = false;
-        currentLeader = new();
+        currentLeader = new LeaderDto { IsActive = true };
         editingLeader = null;
     }
 
-    private async Task CheckCalendarAuthentication()
+    private void AuthorizeGoogleCalendar()
     {
-        try
-        {
-            isCalendarAuthenticated = await CalendarService.IsAuthenticatedAsync();
-        }
-        catch
-        {
-            isCalendarAuthenticated = false;
-        }
-    }
-
-    private async Task AuthorizeGoogleCalendar()
-    {
-        try
-        {
-            // Check if user is authenticated
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            if (authState.User.Identity?.IsAuthenticated == true)
-            {
-                // User is already authenticated, just refresh the page
-                await CheckCalendarAuthentication();
-                if (isCalendarAuthenticated)
-                {
-                    await LoadCalendars();
-                }
-            }
-            else
-            {
-                // Redirect to Google sign-in
-                Navigation.NavigateTo("/signin-google", true);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Handle error - in a real app, would use proper error handling
-            Console.WriteLine($"Error during authorization: {ex.Message}");
-        }
+        // forceLoad triggers a real browser navigation to the server-rendered Google
+        // OAuth challenge endpoint. WASM cannot handle /signin-google in-process.
+        Navigation.NavigateTo("/signin-google", forceLoad: true);
     }
 
     private void ClearCredentials()
     {
-        try
-        {
-            // Clear the available calendars
-            availableCalendars.Clear();
-            // Sign out the user
-            Navigation.NavigateTo("/signout-google", true);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error signing out: {ex.Message}");
-        }
+        availableCalendars.Clear();
+        Navigation.NavigateTo("/signout-google", forceLoad: true);
     }
 }

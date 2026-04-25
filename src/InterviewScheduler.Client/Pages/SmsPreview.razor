@@ -290,15 +290,7 @@
 
         // SmsService takes Core entities and walks HeadOfHouse / HeadOfHouse.Spouse
         // navigation. Project DTOs back into the entity graph so the service stays unchanged.
-        var byId = contactDtos.ToDictionary(d => d.Id, ToContact);
-        foreach (var dto in contactDtos)
-        {
-            var contact = byId[dto.Id];
-            if (dto.HeadOfHouseId.HasValue && byId.TryGetValue(dto.HeadOfHouseId.Value, out var hoh))
-                contact.HeadOfHouse = hoh;
-            if (dto.SpouseId.HasValue && byId.TryGetValue(dto.SpouseId.Value, out var sp))
-                contact.Spouse = sp;
-        }
+        var byId = contactDtos.ToContactGraph();
 
         contacts = byId.Values
             .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) ||
@@ -309,12 +301,12 @@
 
         leaders = leaderDtos
             .Where(l => l.IsActive)
-            .Select(ToLeader)
+            .Select(l => l.ToLeader())
             .OrderBy(l => l.Title)
             .ToList();
 
         appointmentTypes = typeDtos
-            .Select(ToAppointmentType)
+            .Select(t => t.ToAppointmentType())
             .OrderBy(t => t.Name)
             .ToList();
     }
@@ -338,46 +330,4 @@
     {
         await JSRuntime.InvokeVoidAsync("open", smsLink, "_blank");
     }
-
-    private static Contact ToContact(ContactDto d) => new()
-    {
-        Id = d.Id,
-        FirstName = d.FirstName,
-        MiddleName = d.MiddleName,
-        LastName = d.LastName,
-        PhoneNumber = d.PhoneNumber,
-        Gender = d.Gender,
-        BirthDate = d.BirthDate,
-        HeadOfHouseId = d.HeadOfHouseId,
-        SpouseId = d.SpouseId
-    };
-
-    private static Leader ToLeader(LeaderDto d) => new()
-    {
-        Id = d.Id,
-        Name = d.Name,
-        Title = d.Title,
-        GoogleCalendarId = d.GoogleCalendarId,
-        IsActive = d.IsActive
-    };
-
-    private static AppointmentType ToAppointmentType(AppointmentTypeDto d) => new()
-    {
-        Id = d.Id,
-        Name = d.Name,
-        Duration = d.Duration,
-        MessageTemplate = d.MessageTemplate,
-        MinorMessageTemplate = d.MinorMessageTemplate,
-        BufferTimeBeforeMinutes = d.BufferTimeBeforeMinutes,
-        BufferTimeAfterMinutes = d.BufferTimeAfterMinutes,
-        MinimumDurationMinutes = d.MinimumDurationMinutes,
-        MaximumDurationMinutes = d.MaximumDurationMinutes,
-        MinimumAdvanceBookingHours = d.MinimumAdvanceBookingHours,
-        MaximumAdvanceBookingDays = d.MaximumAdvanceBookingDays,
-        SchedulingPriority = d.SchedulingPriority,
-        RequireStrictBufferTime = d.RequireStrictBufferTime,
-        AllowWeekendScheduling = d.AllowWeekendScheduling,
-        AllowAfterHoursScheduling = d.AllowAfterHoursScheduling,
-        ColorCode = d.ColorCode
-    };
 }

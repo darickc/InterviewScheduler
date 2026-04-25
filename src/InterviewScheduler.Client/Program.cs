@@ -30,8 +30,39 @@ builder.Services.AddHttpClient<IAppointmentsApiClient, AppointmentsApiClient>(Co
 builder.Services.AddHttpClient<ICalendarApiClient, CalendarApiClient>(ConfigureClient);
 builder.Services.AddHttpClient<IScheduleApiClient, ScheduleApiClient>(ConfigureClient);
 
-// SmsService is pure logic from Shared and runs in WASM unchanged.
+// SmsService and SchedulingRulesService are pure logic from Shared and run in WASM unchanged.
 builder.Services.AddLogging();
 builder.Services.AddScoped<InterviewScheduler.Shared.Services.ISmsService, InterviewScheduler.Shared.Services.SmsService>();
+builder.Services.Configure<InterviewScheduler.Core.Entities.SchedulingConfiguration>(options =>
+{
+    var config = InterviewScheduler.Core.Entities.SchedulingConfiguration.CreateUnrestrictedConfiguration();
+    config.DefaultBufferTimeMinutes = 0;
+    config.DefaultMinimumAdvanceBookingHours = 0;
+    config.DefaultMaximumAdvanceBookingDays = 365;
+    config.AllowWeekendSchedulingByDefault = true;
+    config.AllowAfterHoursSchedulingByDefault = true;
+    config.EnforceStrictValidation = false;
+    config.Holidays.Clear();
+    config.RecurringBlackouts.Clear();
+
+    options.DefaultWorkingHours = config.DefaultWorkingHours;
+    options.DefaultBufferTimeMinutes = config.DefaultBufferTimeMinutes;
+    options.DefaultMinimumAdvanceBookingHours = config.DefaultMinimumAdvanceBookingHours;
+    options.DefaultMaximumAdvanceBookingDays = config.DefaultMaximumAdvanceBookingDays;
+    options.MaximumAppointmentDurationMinutes = config.MaximumAppointmentDurationMinutes;
+    options.MinimumAppointmentDurationMinutes = config.MinimumAppointmentDurationMinutes;
+    options.AllowWeekendSchedulingByDefault = config.AllowWeekendSchedulingByDefault;
+    options.AllowAfterHoursSchedulingByDefault = config.AllowAfterHoursSchedulingByDefault;
+    options.SystemTimeZone = config.SystemTimeZone;
+    options.Holidays = config.Holidays;
+    options.RecurringBlackouts = config.RecurringBlackouts;
+    options.AllowHighPriorityDoubleBooking = config.AllowHighPriorityDoubleBooking;
+    options.DoubleBookingPriorityThreshold = config.DoubleBookingPriorityThreshold;
+    options.EnableAutomaticAlternativeSuggestions = config.EnableAutomaticAlternativeSuggestions;
+    options.AlternativeSearchDays = config.AlternativeSearchDays;
+    options.EnforceStrictValidation = config.EnforceStrictValidation;
+    options.DefaultTimeSlotIncrementMinutes = config.DefaultTimeSlotIncrementMinutes;
+});
+builder.Services.AddScoped<InterviewScheduler.Shared.Services.ISchedulingRulesService, InterviewScheduler.Shared.Services.SchedulingRulesService>();
 
 await builder.Build().RunAsync();

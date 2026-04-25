@@ -2,16 +2,14 @@
 @attribute [Authorize]
 @using InterviewScheduler.Core.Entities
 @using InterviewScheduler.Core.Enums
-@using InterviewScheduler.Core.Interfaces
-@using InterviewScheduler.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
-@inject ICalendarService CalendarService
+@inject IAppointmentsApiClient AppointmentsApi
+@inject IContactsApiClient ContactsApi
+@inject ILeadersApiClient LeadersApi
+@inject IAppointmentTypesApiClient AppointmentTypesApi
 @inject ISmsService SmsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
-@inject IUserService UserService
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 
 <PageTitle>Appointments</PageTitle>
 
@@ -149,25 +147,25 @@
                                                     <i class="bi bi-check"></i> Confirm
                                                 </button>
                                             }
-                                            
+
                                             @if (appointment.Status != AppointmentStatus.Cancelled)
                                             {
                                                 <button class="btn btn-outline-danger" @onclick="() => CancelAppointment(appointment)">
                                                     <i class="bi bi-x"></i> Cancel
                                                 </button>
                                             }
-                                            
+
                                             <button class="btn btn-outline-primary" @onclick="() => ViewDetails(appointment)">
                                                 <i class="bi bi-eye"></i> Details
                                             </button>
-                                            
+
                                             @if (HasValidPhoneForSms(appointment))
                                             {
                                                 <button class="btn btn-outline-info" @onclick="() => SendSMSReminder(appointment)">
                                                     <i class="bi bi-phone"></i> SMS @GetSmsButtonLabel(appointment.Contact)
                                                 </button>
                                             }
-                                            
+
                                             @if (appointment.Status == AppointmentStatus.Cancelled)
                                             {
                                                 <button class="btn btn-outline-secondary" @onclick="() => DeleteAppointment(appointment)">
@@ -237,18 +235,18 @@ else
                                         else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
                                         {
                                             <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to: 
+                                            <br><small class="text-info">SMS will be sent to:
                                                 @if (!string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
                                                 {
-                                                    <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber)" title="Click to copy">
+                                                    <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)" title="Click to copy">
                                                         @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
                                                     </span>
-                                                    @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null && 
+                                                    @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null &&
                                                         !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
                                                         selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber != selectedAppointment.Contact.HeadOfHouse.PhoneNumber)
                                                     {
                                                         <text> | </text>
-                                                        <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber)" title="Click to copy">
+                                                        <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber!)" title="Click to copy">
                                                             @selectedAppointment.Contact.HeadOfHouse.Spouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber <i class="bi bi-clipboard"></i>
                                                         </span>
                                                     }
@@ -262,8 +260,8 @@ else
                                         else if (selectedAppointment.Contact?.IsMinor == false && selectedAppointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
                                         {
                                             <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to head of household: 
-                                                <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber)" title="Click to copy">
+                                            <br><small class="text-info">SMS will be sent to head of household:
+                                                <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)" title="Click to copy">
                                                     @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
                                                 </span>
                                             </small>
@@ -330,7 +328,7 @@ else
                             </table>
                         </div>
                     </div>
-                    
+
                     @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
                     {
                         <h6 class="mt-3">Message Templates</h6>
@@ -345,7 +343,7 @@ else
                                 </button>
                             </div>
                         </div>
-                        
+
                         @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
                         {
                             <div class="alert alert-secondary">
@@ -408,12 +406,12 @@ else
         color: #0d6efd;
         text-decoration: underline;
     }
-    
+
     .clickable-phone:hover {
         color: #0a58ca;
         text-decoration: underline;
     }
-    
+
     .clickable-phone i {
         font-size: 0.875rem;
         margin-left: 0.25rem;
@@ -424,8 +422,7 @@ else
     private List<Appointment> appointments = new();
     private List<Leader> leaders = new();
     private Appointment? selectedAppointment;
-    
-    // Filters
+
     private string viewFilter = "all";
     private string searchTerm = "";
     private string leaderFilter = "";
@@ -438,23 +435,31 @@ else
 
     private async Task LoadData()
     {
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-        
-        appointments = await DbContext.Appointments
-            .Include(a => a.Contact)
-                .ThenInclude(c => c!.HeadOfHouse)
-                .ThenInclude(h => h!.Spouse)
-            .Include(a => a.Leader)
-            .Include(a => a.AppointmentType)
-            .Where(a => a.UserId == currentUser.Id)
-            .OrderBy(a => a.ScheduledTime)
-            .ToListAsync();
+        // The API exposes flat DTOs; reassemble the entity graph client-side so the page
+        // can keep using Core entity navigation (Contact, Leader, AppointmentType, plus
+        // HeadOfHouse / Spouse) and ISmsService unchanged.
+        var apptDtosTask = AppointmentsApi.GetAllAsync();
+        var contactDtosTask = ContactsApi.GetAllAsync();
+        var leaderDtosTask = LeadersApi.GetAllAsync();
+        var typeDtosTask = AppointmentTypesApi.GetAllAsync();
 
-        leaders = await DbContext.Leaders
-            .Where(l => l.IsActive && l.UserId == currentUser.Id)
+        await Task.WhenAll(apptDtosTask, contactDtosTask, leaderDtosTask, typeDtosTask);
+
+        var contactsById = (await contactDtosTask).ToContactGraph();
+        var leadersById = (await leaderDtosTask).ToDictionary(l => l.Id, l => l.ToLeader());
+        var typesById = (await typeDtosTask).ToDictionary(t => t.Id, t => t.ToAppointmentType());
+
+        appointments = (await apptDtosTask)
+            .Select(d => d.ToAppointment(contactsById, leadersById, typesById))
+            .Where(a => a != null)
+            .Cast<Appointment>()
+            .OrderBy(a => a.ScheduledTime)
+            .ToList();
+
+        leaders = leadersById.Values
+            .Where(l => l.IsActive)
             .OrderBy(l => l.Title)
-            .ToListAsync();
+            .ToList();
     }
 
     private IEnumerable<Appointment> filteredAppointments
@@ -463,7 +468,6 @@ else
         {
             var filtered = appointments.AsEnumerable();
 
-            // Status filter
             if (viewFilter != "all")
             {
                 var status = viewFilter switch
@@ -476,7 +480,6 @@ else
                 filtered = filtered.Where(a => a.Status == status);
             }
 
-            // Text search
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 filtered = filtered.Where(a =>
@@ -488,13 +491,11 @@ else
                     (a.AppointmentType?.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) == true));
             }
 
-            // Leader filter
             if (!string.IsNullOrWhiteSpace(leaderFilter) && int.TryParse(leaderFilter, out var leaderId))
             {
                 filtered = filtered.Where(a => a.LeaderId == leaderId);
             }
 
-            // Date filter
             if (!string.IsNullOrWhiteSpace(dateFilter))
             {
                 var today = DateTime.Today;
@@ -513,10 +514,7 @@ else
         }
     }
 
-    private void SetFilter(string filter)
-    {
-        viewFilter = filter;
-    }
+    private void SetFilter(string filter) => viewFilter = filter;
 
     private void ClearFilters()
     {
@@ -530,73 +528,55 @@ else
     {
         if (appointment.ScheduledTime.Date < DateTime.Today)
             return "table-secondary";
-        
+
         if (appointment.Status == AppointmentStatus.Cancelled)
             return "table-danger";
-        
+
         if (appointment.Status == AppointmentStatus.Confirmed)
             return "table-success";
-        
+
         return "";
     }
 
     private async Task ConfirmAppointment(Appointment appointment)
     {
-        appointment.Status = AppointmentStatus.Confirmed;
-        await DbContext.SaveChangesAsync();
-        await LoadData();
-        CloseDetails();
+        try
+        {
+            await AppointmentsApi.ConfirmAsync(appointment.Id);
+            await LoadData();
+            CloseDetails();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Failed to confirm appointment: {ex.Message}");
+        }
     }
 
     private async Task CancelAppointment(Appointment appointment)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"Are you sure you want to cancel the appointment with {appointment.Contact?.FullName}?");
-        
-        if (confirmed)
+
+        if (!confirmed) return;
+
+        try
         {
-            // Try to delete from Google Calendar first
-            if (!string.IsNullOrEmpty(appointment.GoogleEventId) && !string.IsNullOrEmpty(appointment.Leader?.GoogleCalendarId))
-            {
-                try
-                {
-                    var deleteSuccess = await CalendarService.DeleteEventAsync(appointment.Leader.GoogleCalendarId, appointment.GoogleEventId);
-                    
-                    // Only mark as cancelled if calendar deletion succeeded or there was no calendar event
-                    if (deleteSuccess)
-                    {
-                        appointment.Status = AppointmentStatus.Cancelled;
-                        await DbContext.SaveChangesAsync();
-                        await LoadData();
-                    }
-                    else
-                    {
-                        await JSRuntime.InvokeVoidAsync("alert", 
-                            "Failed to remove the calendar event. The appointment has not been cancelled. Please try again or check your Google Calendar connection.");
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await JSRuntime.InvokeVoidAsync("alert", 
-                        $"An error occurred while removing the calendar event: {ex.Message}. The appointment has not been cancelled.");
-                    return;
-                }
-            }
-            
+            // The server-side cancel handler deletes the Google Calendar event before
+            // marking the appointment cancelled, returning 502 if calendar deletion fails.
+            await AppointmentsApi.CancelAsync(appointment.Id);
+            await LoadData();
             CloseDetails();
+        }
+        catch (HttpRequestException ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"Failed to cancel appointment: {ex.Message}. The calendar event may not have been removed.");
         }
     }
 
-    private void ViewDetails(Appointment appointment)
-    {
-        selectedAppointment = appointment;
-    }
+    private void ViewDetails(Appointment appointment) => selectedAppointment = appointment;
 
-    private void CloseDetails()
-    {
-        selectedAppointment = null;
-    }
+    private void CloseDetails() => selectedAppointment = null;
 
     private async Task SendSMSReminder(Appointment appointment)
     {
@@ -605,21 +585,18 @@ else
 
         var targetPhoneNumber = appointment.Contact.PhoneNumber;
         var isParentMessage = false;
-        
-        // For minors, collect all parent phone numbers
+
         if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null)
         {
             var parentPhoneNumbers = new List<string>();
-            
-            // Add head of house phone if valid and different from contact's
-            if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber) && 
+
+            if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber) &&
                 appointment.Contact.HeadOfHouse.PhoneNumber != appointment.Contact.PhoneNumber)
             {
                 parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.PhoneNumber);
             }
 
-            // Add spouse phone if valid and not duplicate
-            if (appointment.Contact.HeadOfHouse.Spouse != null && 
+            if (appointment.Contact.HeadOfHouse.Spouse != null &&
                 !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
                 appointment.Contact.HeadOfHouse.Spouse.PhoneNumber != appointment.Contact.PhoneNumber &&
                 !parentPhoneNumbers.Contains(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber))
@@ -627,7 +604,6 @@ else
                 parentPhoneNumbers.Add(appointment.Contact.HeadOfHouse.Spouse.PhoneNumber);
             }
 
-            // Use combined parent phone numbers if any found
             if (parentPhoneNumbers.Any())
             {
                 targetPhoneNumber = string.Join(",", parentPhoneNumbers);
@@ -635,34 +611,23 @@ else
             }
         }
 
-        // For adults without phone numbers, use head of household phone
         if (string.IsNullOrEmpty(targetPhoneNumber) && !appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null)
         {
             if (!string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
             {
                 targetPhoneNumber = appointment.Contact.HeadOfHouse.PhoneNumber;
-                // Don't set isParentMessage = true for adults, they get regular message format
             }
         }
 
         if (string.IsNullOrEmpty(targetPhoneNumber))
             return;
 
-        // Use appropriate message format
-        string message;
-        if (isParentMessage)
-        {
-            // Use the parent notification message format
-            message = SmsService.GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime);
-        }
-        else
-        {
-            // Use regular message format
-            message = SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
-        }
+        var message = isParentMessage
+            ? SmsService.GenerateParentNotificationMessage(appointment.Contact, appointment.Leader, appointment.AppointmentType, appointment.ScheduledTime)
+            : SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
 
         var smsUrl = SmsService.GenerateSmsLink(targetPhoneNumber, message);
-        
+
         await JSRuntime.InvokeVoidAsync("open", smsUrl, "_blank");
     }
 
@@ -673,38 +638,36 @@ else
 
         return SmsService.FormatMessage(appointment.AppointmentType, appointment.Contact, appointment.Leader, appointment.ScheduledTime);
     }
-    
+
     private string GetAdultFormattedMessage(Appointment appointment)
     {
         if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
             return "";
 
-        // Force use of adult template by creating a temp contact that's not a minor
         var adultContact = new Contact
         {
             FirstName = appointment.Contact.FirstName,
             LastName = appointment.Contact.LastName,
             Gender = appointment.Contact.Gender,
-            BirthDate = DateTime.Today.AddYears(-25), // Set to adult age (25 years old)
+            BirthDate = DateTime.Today.AddYears(-25),
             PhoneNumber = appointment.Contact.PhoneNumber,
             HeadOfHouse = appointment.Contact.HeadOfHouse
         };
 
         return SmsService.FormatMessage(appointment.AppointmentType, adultContact, appointment.Leader, appointment.ScheduledTime);
     }
-    
+
     private string GetMinorFormattedMessage(Appointment appointment)
     {
         if (appointment.AppointmentType == null || appointment.Contact == null || appointment.Leader == null)
             return "";
 
-        // Force use of minor template by creating a temp contact that's a minor
         var minorContact = new Contact
         {
             FirstName = appointment.Contact.FirstName,
             LastName = appointment.Contact.LastName,
             Gender = appointment.Contact.Gender,
-            BirthDate = DateTime.Today.AddYears(-16), // Set to minor age (16 years old)
+            BirthDate = DateTime.Today.AddYears(-16),
             PhoneNumber = appointment.Contact.PhoneNumber,
             HeadOfHouse = appointment.Contact.HeadOfHouse ?? appointment.Contact
         };
@@ -714,23 +677,12 @@ else
 
     private bool HasValidPhoneForSms(Appointment appointment)
     {
-        if (appointment.Contact == null)
-            return false;
-
-        // Check if contact has a phone number
-        if (!string.IsNullOrEmpty(appointment.Contact.PhoneNumber))
-            return true;
-
-        // For minors, check if parent has a phone number
-        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
-            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
-            return true;
-
-        // For adults, check if head of household has a phone number
-        if (!appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null && 
-            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
-            return true;
-
+        if (appointment.Contact == null) return false;
+        if (!string.IsNullOrEmpty(appointment.Contact.PhoneNumber)) return true;
+        if (appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null &&
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber)) return true;
+        if (!appointment.Contact.IsMinor && appointment.Contact.HeadOfHouse != null &&
+            !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber)) return true;
         return false;
     }
 
@@ -741,14 +693,12 @@ else
 
         var parentPhones = new List<string>();
 
-        // Add head of house phone
         if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
         {
             parentPhones.Add($"{contact.HeadOfHouse.FirstName}: {contact.HeadOfHouse.PhoneNumber}");
         }
 
-        // Add spouse phone if available and different
-        if (contact.HeadOfHouse.Spouse != null && 
+        if (contact.HeadOfHouse.Spouse != null &&
             !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
             contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
         {
@@ -764,12 +714,11 @@ else
             return "";
 
         var parentCount = 0;
-        
-        // Count valid parent phone numbers
+
         if (!string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
             parentCount++;
 
-        if (contact.HeadOfHouse.Spouse != null && 
+        if (contact.HeadOfHouse.Spouse != null &&
             !string.IsNullOrEmpty(contact.HeadOfHouse.Spouse.PhoneNumber) &&
             contact.HeadOfHouse.Spouse.PhoneNumber != contact.HeadOfHouse.PhoneNumber)
             parentCount++;
@@ -784,20 +733,26 @@ else
 
     private async Task DeleteAppointment(Appointment appointment)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"Are you sure you want to permanently delete this appointment with {appointment.Contact?.FullName}?");
-        
-        if (confirmed)
+
+        if (!confirmed) return;
+
+        try
         {
-            DbContext.Appointments.Remove(appointment);
-            await DbContext.SaveChangesAsync();
+            await AppointmentsApi.DeleteAsync(appointment.Id);
             await LoadData();
             CloseDetails();
         }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Failed to delete appointment: {ex.Message}");
+        }
     }
 
-    private async Task CopyPhoneToClipboard(string phoneNumber)
+    private async Task CopyPhoneToClipboard(string? phoneNumber)
     {
+        if (string.IsNullOrEmpty(phoneNumber)) return;
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", phoneNumber);
         await JSRuntime.InvokeVoidAsync("alert", "Phone number copied to clipboard!");
     }
@@ -807,5 +762,4 @@ else
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", message);
         await JSRuntime.InvokeVoidAsync("alert", "Message copied to clipboard!");
     }
-
 }

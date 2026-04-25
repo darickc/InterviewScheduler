@@ -1,13 +1,9 @@
 @page "/contacts"
 @attribute [Authorize]
 @using InterviewScheduler.Core.Entities
-@using InterviewScheduler.Core.Interfaces
-@using InterviewScheduler.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
-@inject ICsvParserService CsvParser
-@inject IUserService UserService
-@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@inject IContactsApiClient ContactsApi
+@rendermode InteractiveWebAssembly
 
 <PageTitle>Contacts</PageTitle>
 
@@ -20,7 +16,14 @@
                 <h3>Import Contacts from CSV</h3>
             </div>
             <div class="card-body">
-                <InputFile OnChange="@LoadFiles" accept=".csv" />
+                <InputFile OnChange="@LoadFiles" accept=".csv" disabled="@isImporting" />
+                @if (isImporting)
+                {
+                    <div class="mt-2 text-muted">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        Uploading and processing CSV...
+                    </div>
+                }
                 @if (importMessage != null)
                 {
                     <div class="alert @(importSuccess ? "alert-success" : "alert-danger") mt-3">
@@ -35,7 +38,7 @@
 <div class="row">
     <div class="col-md-12">
         <h3>Contact List</h3>
-        
+
         <div class="row mb-3">
             <div class="col-md-4">
                 <input type="text" class="form-control" placeholder="Search by name or phone..."
@@ -68,7 +71,7 @@
                 <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
             </div>
         </div>
-        
+
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span>Showing @filteredContacts.Count() of @contacts.Count contacts</span>
         </div>
@@ -175,6 +178,7 @@
     private string? importMessage;
     private bool importSuccess;
     private bool groupByFamily = false;
+    private bool isImporting = false;
 
     private IEnumerable<Contact> filteredContacts
     {
@@ -182,7 +186,6 @@
         {
             var filtered = contacts.AsEnumerable();
 
-            // Text search
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 filtered = filtered.Where(c =>
@@ -192,13 +195,11 @@
                     (c.PhoneNumber != null && c.PhoneNumber.Contains(searchTerm)));
             }
 
-            // Gender filter
             if (!string.IsNullOrWhiteSpace(genderFilter))
             {
                 filtered = filtered.Where(c => c.Gender.ToString() == genderFilter);
             }
 
-            // Age filter
             if (!string.IsNullOrWhiteSpace(ageFilter))
             {
                 filtered = ageFilter switch
@@ -210,7 +211,6 @@
                 };
             }
 
-            // Family filter
             if (!string.IsNullOrWhiteSpace(familyFilter))
             {
                 filtered = familyFilter switch
@@ -233,16 +233,12 @@
 
     private async Task LoadContacts()
     {
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-        
-        contacts = await DbContext.Contacts
-            .Include(c => c.HeadOfHouse)
-            .Include(c => c.Spouse)
-            .Where(c => c.UserId == currentUser.Id)
+        var dtos = await ContactsApi.GetAllAsync();
+        var graph = dtos.ToContactGraph();
+        contacts = graph.Values
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
-            .ToListAsync();
+            .ToList();
     }
 
     private void ClearFilters()
@@ -256,7 +252,7 @@
     private Dictionary<string, List<Contact>> GetFamilyGroups()
     {
         var families = new Dictionary<string, List<Contact>>();
-        
+
         foreach (var contact in filteredContacts)
         {
             var familyName = GetFamilyName(contact);
@@ -266,19 +262,16 @@
             }
             families[familyName].Add(contact);
         }
-        
+
         return families.OrderBy(f => f.Key).ToDictionary(f => f.Key, f => f.Value);
     }
 
     private string GetFamilyName(Contact contact)
     {
-        // If this person has no head of house, they are the head of their family
         if (contact.HeadOfHouseId == null)
         {
             return contact.FullName;
         }
-        
-        // Otherwise, use the head of house's full name
         return contact.HeadOfHouse?.FullName ?? contact.FullName;
     }
 
@@ -317,83 +310,35 @@
     private async Task LoadFiles(InputFileChangeEventArgs e)
     {
         importMessage = null;
-        
+        isImporting = true;
+
         try
         {
             var file = e.File;
-            if (file.ContentType != "text/csv" && !file.Name.EndsWith(".csv"))
+            if (file.ContentType != "text/csv" && !file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
                 importMessage = "Please select a CSV file.";
                 importSuccess = false;
                 return;
             }
 
-            // Read file into memory so we can use it twice
-            using var fileStream = file.OpenReadStream();
-            using var memoryStream = new MemoryStream();
-            await fileStream.CopyToAsync(memoryStream);
-            var csvBytes = memoryStream.ToArray();
+            // 10MB cap matches the server's [RequestSizeLimit(10_000_000)] on /api/contacts/import.
+            using var fileStream = file.OpenReadStream(maxAllowedSize: 10_000_000);
+            var imported = await ContactsApi.ImportAsync(fileStream, file.Name);
 
-            // First pass: Parse contacts without relationships
-            using var parseStream = new MemoryStream(csvBytes);
-            var importedContacts = await CsvParser.ParseContactsCsvAsync(parseStream);
+            await LoadContacts();
 
-            if (importedContacts.Any())
-            {
-                var currentUser = await UserService.GetCurrentUserAsync();
-                if (currentUser == null)
-                {
-                    importMessage = "User not found. Please sign in again.";
-                    importSuccess = false;
-                    return;
-                }
-
-                // Clear existing contacts for this user only - Two-phase deletion to handle circular dependencies
-                var existingContacts = await DbContext.Contacts
-                    .Where(c => c.UserId == currentUser.Id)
-                    .ToListAsync();
-                
-                // Phase 1: Break circular dependencies by nullifying foreign key relationships
-                foreach (var contact in existingContacts)
-                {
-                    contact.HeadOfHouseId = null;
-                    contact.SpouseId = null;
-                }
-                await DbContext.SaveChangesAsync();
-                
-                // Phase 2: Now safely delete all contacts
-                DbContext.Contacts.RemoveRange(existingContacts);
-
-                // Assign user to all imported contacts
-                foreach (var contact in importedContacts)
-                {
-                    contact.UserId = currentUser.Id;
-                }
-
-                // Add imported contacts to database
-                await DbContext.Contacts.AddRangeAsync(importedContacts);
-                await DbContext.SaveChangesAsync();
-
-                // Second pass: Link relationships using the saved contacts with IDs
-                using var linkStream = new MemoryStream(csvBytes);
-                await CsvParser.LinkRelationshipsAsync(linkStream, importedContacts);
-                await DbContext.SaveChangesAsync();
-                
-                await LoadContacts();
-
-                importMessage = $"Successfully imported {importedContacts.Count} contacts.";
-                importSuccess = true;
-            }
-            else
-            {
-                importMessage = "No contacts found in the CSV file.";
-                importSuccess = false;
-            }
+            importMessage = $"Successfully imported {imported.Count} contacts.";
+            importSuccess = true;
         }
         catch (Exception ex)
         {
             importMessage = $"Error importing contacts: {ex.Message}";
             importSuccess = false;
+        }
+        finally
+        {
+            isImporting = false;
         }
     }
 }

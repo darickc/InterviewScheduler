@@ -2,7 +2,7 @@ using Itenso.TimePeriod;
 using InterviewScheduler.Core.Entities;
 using InterviewScheduler.Core.Helpers;
 
-namespace InterviewScheduler.Core.Interfaces;
+namespace InterviewScheduler.Shared.Services;
 
 /// <summary>
 /// Service for managing scheduling business rules and constraints.
@@ -55,8 +55,8 @@ public interface ISchedulingRulesService
     /// <param name="workingHours">Working hours configuration. If null, uses system defaults.</param>
     /// <returns>A validation result indicating success or failure with detailed messages.</returns>
     ValidationResult ValidateSchedulingConstraints(
-        TimeRange appointment, 
-        AppointmentType appointmentType, 
+        TimeRange appointment,
+        AppointmentType appointmentType,
         int leaderId,
         IEnumerable<Appointment> existingAppointments,
         WorkingHours? workingHours = null);
@@ -70,8 +70,8 @@ public interface ISchedulingRulesService
     /// <param name="leaderId">The leader ID for the appointment.</param>
     /// <returns>True if buffer time requirements are met, false otherwise.</returns>
     bool ValidateBufferTime(
-        TimeRange appointment, 
-        AppointmentType appointmentType, 
+        TimeRange appointment,
+        AppointmentType appointmentType,
         IEnumerable<Appointment> existingAppointments,
         int leaderId);
 

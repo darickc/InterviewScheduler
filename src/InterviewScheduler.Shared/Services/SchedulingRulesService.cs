@@ -2,11 +2,10 @@ using Itenso.TimePeriod;
 using InterviewScheduler.Core.Entities;
 using InterviewScheduler.Core.Extensions;
 using InterviewScheduler.Core.Helpers;
-using InterviewScheduler.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace InterviewScheduler.Infrastructure.Services;
+namespace InterviewScheduler.Shared.Services;
 
 /// <summary>
 /// Service for managing scheduling business rules and constraints.
@@ -133,8 +132,8 @@ public class SchedulingRulesService : ISchedulingRulesService
 
             // Validate appointment type constraints
             var typeValidation = ValidateAppointmentTypeConstraints(
-                appointmentType, 
-                appointment.Start, 
+                appointmentType,
+                appointment.Start,
                 (int)appointment.Duration.TotalMinutes);
             result.Merge(typeValidation);
 
@@ -148,7 +147,7 @@ public class SchedulingRulesService : ISchedulingRulesService
             var conflicts = appointment.GetConflicts(leaderAppointments);
             if (conflicts.Any())
             {
-                if (_configuration.AllowHighPriorityDoubleBooking && 
+                if (_configuration.AllowHighPriorityDoubleBooking &&
                     appointmentType.SchedulingPriority <= _configuration.DoubleBookingPriorityThreshold)
                 {
                     result.AddWarning($"High-priority appointment conflicts with {conflicts.Count} existing appointment(s) but is allowed to double-book.");
@@ -212,7 +211,7 @@ public class SchedulingRulesService : ISchedulingRulesService
             {
                 var bufferBefore = TimeSpan.FromMinutes(appointmentType.BufferTimeBeforeMinutes);
                 var bufferRangeBefore = new TimeRange(appointment.Start.Subtract(bufferBefore), appointment.Start);
-                
+
                 if (leaderAppointments.Any(a => a.TimeRange.IntersectsWith(bufferRangeBefore)))
                 {
                     return false;
@@ -224,7 +223,7 @@ public class SchedulingRulesService : ISchedulingRulesService
             {
                 var bufferAfter = TimeSpan.FromMinutes(appointmentType.BufferTimeAfterMinutes);
                 var bufferRangeAfter = new TimeRange(appointment.End, appointment.End.Add(bufferAfter));
-                
+
                 if (leaderAppointments.Any(a => a.TimeRange.IntersectsWith(bufferRangeAfter)))
                 {
                     return false;
@@ -253,13 +252,13 @@ public class SchedulingRulesService : ISchedulingRulesService
         try
         {
             var availableSlots = new TimePeriodCollection();
-            
+
             // In unrestricted mode, the entire day is available (24 hours)
             var fullDaySlot = new TimeRange(date.Date, date.Date.AddDays(1));
             var adjustedSlots = new TimePeriodCollection { fullDaySlot };
 
             // Skip blocked periods check - there are no blocked periods in unrestricted mode
-            
+
             // Only remove intersections with existing appointments
             var leaderAppointments = existingAppointments.Where(a => a.LeaderId == leaderId);
             foreach (var appointment in leaderAppointments)
@@ -325,7 +324,7 @@ public class SchedulingRulesService : ISchedulingRulesService
             // Convert large time periods into appointment-sized slots
             var appointmentSlots = new TimePeriodCollection();
             var slotDuration = TimeSpan.FromMinutes(appointmentType.Duration);
-            
+
             foreach (var period in adjustedSlots)
             {
                 var currentTime = period.Start;
@@ -336,7 +335,7 @@ public class SchedulingRulesService : ISchedulingRulesService
                     currentTime = currentTime.Add(slotDuration); // Move to next slot
                 }
             }
-            
+
             availableSlots.AddAll(appointmentSlots);
 
             _logger.LogDebug("Generated {Count} appointment-sized slots (duration: {Duration} min) for date {Date} and leader {LeaderId}",
@@ -419,13 +418,13 @@ public class SchedulingRulesService : ISchedulingRulesService
             {
                 var timeDifference = proposedTime - DateTime.Now;
 
-                if (appointmentType.MinimumAdvanceBookingHours > 0 && 
+                if (appointmentType.MinimumAdvanceBookingHours > 0 &&
                     timeDifference.TotalHours < appointmentType.MinimumAdvanceBookingHours)
                 {
                     result.AddError($"Appointment must be scheduled at least {appointmentType.MinimumAdvanceBookingHours} hours in advance.");
                 }
 
-                if (appointmentType.MaximumAdvanceBookingDays > 0 && 
+                if (appointmentType.MaximumAdvanceBookingDays > 0 &&
                     timeDifference.TotalDays > appointmentType.MaximumAdvanceBookingDays)
                 {
                     result.AddError($"Appointment cannot be scheduled more than {appointmentType.MaximumAdvanceBookingDays} days in advance.");
@@ -483,7 +482,7 @@ public class SchedulingRulesService : ISchedulingRulesService
             for (int dayOffset = 0; dayOffset <= searchLimit; dayOffset++)
             {
                 var searchDate = requestedTime.Date.AddDays(dayOffset);
-                
+
                 if (!IsDateAvailable(searchDate, leaderId))
                 {
                     continue;
@@ -499,21 +498,21 @@ public class SchedulingRulesService : ISchedulingRulesService
                     {
                         // Use intelligent increments that consider existing appointment end times
                         var timeIncrements = GetIntelligentTimeIncrements(searchDate, slot, appointmentType, existingAppointments, leaderId);
-                        
+
                         foreach (var currentTime in timeIncrements)
                         {
                             if (currentTime.Add(TimeSpan.FromMinutes(durationMinutes)) <= slot.End)
                             {
                                 var proposedSlot = new TimeRange(currentTime, currentTime.AddMinutes(durationMinutes));
-                                
+
                                 // Validate this proposed slot
                                 var validation = ValidateSchedulingConstraints(
                                     proposedSlot, appointmentType, leaderId, existingAppointments, workingHours);
-                                
+
                                 if (validation.IsValid)
                                 {
                                     alternatives.Add(proposedSlot);
-                                    
+
                                     // Limit the number of suggestions
                                     if (alternatives.Count >= 10)
                                     {
@@ -552,49 +551,49 @@ public class SchedulingRulesService : ISchedulingRulesService
     /// instead of using fixed intervals, providing more accurate next available slots.
     /// </summary>
     private IEnumerable<DateTime> GetIntelligentTimeIncrements(
-        DateTime searchDate, 
-        ITimePeriod availableSlot, 
-        AppointmentType appointmentType, 
-        IEnumerable<Appointment> existingAppointments, 
+        DateTime searchDate,
+        ITimePeriod availableSlot,
+        AppointmentType appointmentType,
+        IEnumerable<Appointment> existingAppointments,
         int leaderId)
     {
         var timeIncrements = new SortedSet<DateTime>();
         var durationMinutes = appointmentType.Duration;
         var bufferTime = GetRequiredBufferTime(appointmentType);
-        
+
         // Start with the beginning of the available slot
         timeIncrements.Add(availableSlot.Start);
-        
+
         // Add potential start times based on existing appointment end times
         var dayAppointments = existingAppointments
             .Where(a => a.LeaderId == leaderId && a.ScheduledTime.Date == searchDate.Date)
             .OrderBy(a => a.ScheduledTime);
-            
+
         foreach (var appointment in dayAppointments)
         {
             var appointmentEnd = appointment.ScheduledTime.AddMinutes(appointment.AppointmentType?.Duration ?? durationMinutes);
-            
+
             // Add the end time of the appointment (plus buffer if required) as a potential start time
             var potentialStart = appointmentEnd.Add(bufferTime);
-            
+
             // Only add if it's within the available slot and allows for full appointment duration
-            if (potentialStart >= availableSlot.Start && 
+            if (potentialStart >= availableSlot.Start &&
                 potentialStart.AddMinutes(durationMinutes) <= availableSlot.End)
             {
                 timeIncrements.Add(potentialStart);
             }
         }
-        
+
         // Fill in gaps with regular intervals to ensure we don't miss any opportunities
         var increment = TimeSpan.FromMinutes(Math.Min(durationMinutes, _configuration.DefaultTimeSlotIncrementMinutes));
         var currentTime = availableSlot.Start;
-        
+
         while (currentTime.Add(TimeSpan.FromMinutes(durationMinutes)) <= availableSlot.End)
         {
             timeIncrements.Add(currentTime);
             currentTime = currentTime.Add(increment);
         }
-        
+
         return timeIncrements;
     }
 

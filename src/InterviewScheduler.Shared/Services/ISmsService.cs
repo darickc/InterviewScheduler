@@ -1,6 +1,6 @@
 using InterviewScheduler.Core.Entities;
 
-namespace InterviewScheduler.Core.Interfaces;
+namespace InterviewScheduler.Shared.Services;
 
 public interface ISmsService
 {

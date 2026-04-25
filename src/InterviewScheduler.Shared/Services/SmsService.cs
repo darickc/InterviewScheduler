@@ -1,15 +1,12 @@
-using System.Text.RegularExpressions;
-using System.Web;
 using InterviewScheduler.Core.Entities;
-using InterviewScheduler.Core.Interfaces;
+using InterviewScheduler.Shared.Helpers;
 using Microsoft.Extensions.Logging;
 
-namespace InterviewScheduler.Infrastructure.Services;
+namespace InterviewScheduler.Shared.Services;
 
 public class SmsService : ISmsService
 {
     private readonly ILogger<SmsService> _logger;
-    private static readonly Regex PhoneRegex = new(@"^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$", RegexOptions.Compiled);
 
     public SmsService(ILogger<SmsService> logger)
     {
@@ -20,7 +17,7 @@ public class SmsService : ISmsService
     {
         var sanitizedPhone = SanitizePhoneNumbers(phoneNumber);
         var encodedMessage = Uri.EscapeDataString(message);
-        
+
         // Use the standard SMS URI scheme
         // Format: sms:+1234567890,+1234567891?body=encoded_message (for multiple recipients)
         return $"sms:{sanitizedPhone}?body={encodedMessage}";
@@ -29,10 +26,10 @@ public class SmsService : ISmsService
     public string FormatMessage(AppointmentType appointmentType, Contact contact, Leader leader, DateTime scheduledTime)
     {
         // Select appropriate template based on whether contact is a minor
-        var template = contact.IsMinor && !string.IsNullOrEmpty(appointmentType.MinorMessageTemplate) 
-            ? appointmentType.MinorMessageTemplate 
+        var template = contact.IsMinor && !string.IsNullOrEmpty(appointmentType.MinorMessageTemplate)
+            ? appointmentType.MinorMessageTemplate
             : appointmentType.MessageTemplate;
-            
+
         if (string.IsNullOrEmpty(template))
         {
             return GetDefaultMessage(contact, leader, scheduledTime, appointmentType.Duration);
@@ -63,15 +60,15 @@ public class SmsService : ISmsService
         foreach (var contact in contacts)
         {
             var hasValidContactPhone = IsValidPhoneNumber(contact.PhoneNumber);
-            var hasValidParentPhone = contact.IsMinor && contact.HeadOfHouse != null && 
+            var hasValidParentPhone = contact.IsMinor && contact.HeadOfHouse != null &&
                                     IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber);
-            var hasValidAdultFallbackPhone = !contact.IsMinor && contact.HeadOfHouse != null && 
+            var hasValidAdultFallbackPhone = !contact.IsMinor && contact.HeadOfHouse != null &&
                                            IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber);
 
             // Skip contacts that have no valid way to reach them
             if (!hasValidContactPhone && !hasValidParentPhone && !hasValidAdultFallbackPhone)
             {
-                _logger.LogWarning("No valid phone number for contact {ContactName}: Contact Phone: {ContactPhone}, Head of House Phone: {HeadOfHousePhone}", 
+                _logger.LogWarning("No valid phone number for contact {ContactName}: Contact Phone: {ContactPhone}, Head of House Phone: {HeadOfHousePhone}",
                     contact.FullName, contact.PhoneNumber, contact.HeadOfHouse?.PhoneNumber);
                 continue;
             }
@@ -80,7 +77,7 @@ public class SmsService : ISmsService
             if (hasValidContactPhone)
             {
                 var primaryMessage = FormatMessage(appointmentType, contact, leader, scheduledTime);
-                
+
                 messages.Add(new SmsMessage
                 {
                     ContactName = contact.FullName,
@@ -95,7 +92,7 @@ public class SmsService : ISmsService
             if (!hasValidContactPhone && hasValidAdultFallbackPhone)
             {
                 var fallbackMessage = FormatMessage(appointmentType, contact, leader, scheduledTime);
-                
+
                 messages.Add(new SmsMessage
                 {
                     ContactName = $"{contact.FullName} (via {contact.HeadOfHouse!.FullName})",
@@ -114,7 +111,7 @@ public class SmsService : ISmsService
                 var parentNames = new List<string>();
 
                 // Add head of house phone if valid and different from contact's
-                if (IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber) && 
+                if (IsValidPhoneNumber(contact.HeadOfHouse.PhoneNumber) &&
                     contact.HeadOfHouse.PhoneNumber != contact.PhoneNumber)
                 {
                     parentPhoneNumbers.Add(contact.HeadOfHouse.PhoneNumber!);
@@ -122,7 +119,7 @@ public class SmsService : ISmsService
                 }
 
                 // Add spouse phone if valid and not duplicate
-                if (contact.HeadOfHouse.Spouse != null && 
+                if (contact.HeadOfHouse.Spouse != null &&
                     IsValidPhoneNumber(contact.HeadOfHouse.Spouse.PhoneNumber) &&
                     contact.HeadOfHouse.Spouse.PhoneNumber != contact.PhoneNumber &&
                     !parentPhoneNumbers.Contains(contact.HeadOfHouse.Spouse.PhoneNumber!))
@@ -153,65 +150,11 @@ public class SmsService : ISmsService
         return messages;
     }
 
-    public string SanitizePhoneNumber(string phoneNumber)
-    {
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-            return "";
+    public string SanitizePhoneNumber(string phoneNumber) => PhoneNumberHelper.SanitizePhoneNumber(phoneNumber);
 
-        // Remove all non-numeric characters except + at the start
-        var cleaned = Regex.Replace(phoneNumber.Trim(), @"[^\d+]", "");
-        
-        // Handle US phone numbers
-        if (cleaned.Length == 10)
-        {
-            // Add +1 for US numbers
-            return "+1" + cleaned;
-        }
-        else if (cleaned.Length == 11 && cleaned.StartsWith("1"))
-        {
-            // Add + if missing
-            return "+" + cleaned;
-        }
-        else if (cleaned.StartsWith("+1") && cleaned.Length == 12)
-        {
-            // Already properly formatted
-            return cleaned;
-        }
-        else if (cleaned.StartsWith("+"))
-        {
-            // International number
-            return cleaned;
-        }
-        
-        // Default: try to add +1 for US
-        return "+1" + Regex.Replace(cleaned, @"[^\d]", "");
-    }
+    public string SanitizePhoneNumbers(string phoneNumbers) => PhoneNumberHelper.SanitizePhoneNumbers(phoneNumbers);
 
-    public string SanitizePhoneNumbers(string phoneNumbers)
-    {
-        if (string.IsNullOrWhiteSpace(phoneNumbers))
-            return "";
-
-        // Split by comma or semicolon, sanitize each number, then join with comma
-        var numbers = phoneNumbers.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                 .Select(num => SanitizePhoneNumber(num.Trim()))
-                                 .Where(num => !string.IsNullOrEmpty(num))
-                                 .Distinct(); // Remove duplicates
-
-        return string.Join(",", numbers);
-    }
-
-    public bool IsValidPhoneNumber(string? phoneNumber)
-    {
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-            return false;
-
-        var sanitized = SanitizePhoneNumber(phoneNumber);
-        
-        // Check if it's a valid US phone number (+1 + 10 digits)
-        return Regex.IsMatch(sanitized, @"^\+1\d{10}$") || 
-               Regex.IsMatch(sanitized, @"^\+\d{10,15}$"); // International format
-    }
+    public bool IsValidPhoneNumber(string? phoneNumber) => PhoneNumberHelper.IsValidPhoneNumber(phoneNumber);
 
     private string GetContactSalutation(Contact contact)
     {
@@ -248,10 +191,10 @@ public class SmsService : ISmsService
                 .Replace("{Time}", scheduledTime.ToString("h:mm tt"))
                 .Replace("{Duration}", appointmentType.Duration.ToString())
                 .Replace("{AppointmentType}", appointmentType.Name);
-            
+
             return message;
         }
-        
+
         // Default parent notification if no template provided
         return $"Hello {GetContactSalutation(child.HeadOfHouse!)}, " +
                $"your child {child.FullName} has been scheduled for a {appointmentType.Name.ToLower()} " +

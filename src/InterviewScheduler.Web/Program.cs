@@ -3,6 +3,7 @@ using InterviewScheduler.Infrastructure.Data;
 using InterviewScheduler.Infrastructure.Services;
 using InterviewScheduler.Core.Interfaces;
 using InterviewScheduler.Core.Entities;
+using InterviewScheduler.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;

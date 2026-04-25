@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace InterviewScheduler.Web.Controllers.Api;
 
 [ApiController]
-[Authorize]
+[Authorize(AuthenticationSchemes = "Cookies")]
 public abstract class ApiControllerBase : ControllerBase
 {
     protected readonly IUserService UserService;

@@ -4,10 +4,12 @@
     <ProjectReference Include="..\InterviewScheduler.Core\InterviewScheduler.Core.csproj" />
     <ProjectReference Include="..\InterviewScheduler.Infrastructure\InterviewScheduler.Infrastructure.csproj" />
     <ProjectReference Include="..\InterviewScheduler.Shared\InterviewScheduler.Shared.csproj" />
+    <ProjectReference Include="..\InterviewScheduler.Client\InterviewScheduler.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="9.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

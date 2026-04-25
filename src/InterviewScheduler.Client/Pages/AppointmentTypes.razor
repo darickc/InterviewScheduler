@@ -1,14 +1,9 @@
 @page "/appointment-types"
 @attribute [Authorize]
-@using InterviewScheduler.Core.Entities
-@using InterviewScheduler.Core.Interfaces
-@using InterviewScheduler.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
 @using System.ComponentModel.DataAnnotations
-@inject ApplicationDbContext DbContext
+@inject IAppointmentTypesApiClient TypesApi
 @inject IJSRuntime JSRuntime
-@inject IUserService UserService
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 
 <PageTitle>Appointment Types</PageTitle>
 
@@ -68,7 +63,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
@@ -78,19 +73,19 @@
                 <EditForm Model="appointmentTypeForm" OnValidSubmit="SaveAppointmentType">
                     <DataAnnotationsValidator />
                     <ValidationSummary />
-                    
+
                     <div class="mb-3">
                         <label for="name" class="form-label">Name *</label>
                         <InputText id="name" class="form-control" @bind-Value="appointmentTypeForm.Name" />
                         <ValidationMessage For="() => appointmentTypeForm.Name" />
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="duration" class="form-label">Duration (minutes) *</label>
                         <InputNumber id="duration" class="form-control" @bind-Value="appointmentTypeForm.Duration" />
                         <ValidationMessage For="() => appointmentTypeForm.Duration" />
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="messageTemplate" class="form-label">Message Template (Adults) *</label>
                         <InputTextArea id="messageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MessageTemplate" />
@@ -99,7 +94,7 @@
                             Available placeholders: {ContactName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
                         </small>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="minorMessageTemplate" class="form-label">Message Template (Minors/Parents) *</label>
                         <InputTextArea id="minorMessageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MinorMessageTemplate" />
@@ -108,7 +103,7 @@
                             Available placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
                         </small>
                     </div>
-                    
+
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-success">
                             @(editingType == null ? "Add" : "Update")
@@ -123,7 +118,7 @@
                 </EditForm>
             </div>
         </div>
-        
+
         <div class="card mt-3">
             <div class="card-header">
                 <h4>Default Templates</h4>
@@ -154,9 +149,9 @@
 </div>
 
 @code {
-    private List<AppointmentType> appointmentTypes = new();
+    private List<AppointmentTypeDto> appointmentTypes = new();
     private AppointmentTypeForm appointmentTypeForm = new();
-    private AppointmentType? editingType;
+    private AppointmentTypeDto? editingType;
 
     protected override async Task OnInitializedAsync()
     {
@@ -165,56 +160,43 @@
 
     private async Task LoadAppointmentTypes()
     {
-        var currentUser = await UserService.GetCurrentUserAsync();
-        if (currentUser == null) return;
-        
-        appointmentTypes = await DbContext.AppointmentTypes
-            .Where(t => t.UserId == currentUser.Id)
-            .OrderBy(t => t.Name)
-            .ToListAsync();
+        appointmentTypes = (await TypesApi.GetAllAsync()).ToList();
     }
 
     private async Task SaveAppointmentType()
     {
         try
         {
-            var currentUser = await UserService.GetCurrentUserAsync();
-            if (currentUser == null) return;
-            
             if (editingType == null)
             {
-                // Add new appointment type
-                var newType = new AppointmentType
+                var newType = new AppointmentTypeDto
                 {
                     Name = appointmentTypeForm.Name,
                     Duration = appointmentTypeForm.Duration,
                     MessageTemplate = appointmentTypeForm.MessageTemplate,
-                    MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate,
-                    UserId = currentUser.Id
+                    MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate
                 };
-                DbContext.AppointmentTypes.Add(newType);
+                await TypesApi.CreateAsync(newType);
             }
             else
             {
-                // Update existing appointment type
                 editingType.Name = appointmentTypeForm.Name;
                 editingType.Duration = appointmentTypeForm.Duration;
                 editingType.MessageTemplate = appointmentTypeForm.MessageTemplate;
                 editingType.MinorMessageTemplate = appointmentTypeForm.MinorMessageTemplate;
+                await TypesApi.UpdateAsync(editingType.Id, editingType);
             }
 
-            await DbContext.SaveChangesAsync();
             await LoadAppointmentTypes();
             ResetForm();
         }
         catch (Exception ex)
         {
-            // Handle error (would typically use proper error handling/logging)
             await JSRuntime.InvokeVoidAsync("alert", $"Error saving appointment type: {ex.Message}");
         }
     }
 
-    private void EditAppointmentType(AppointmentType type)
+    private void EditAppointmentType(AppointmentTypeDto type)
     {
         editingType = type;
         appointmentTypeForm = new AppointmentTypeForm
@@ -226,13 +208,12 @@
         };
     }
 
-    private async Task DeleteAppointmentType(AppointmentType type)
+    private async Task DeleteAppointmentType(AppointmentTypeDto type)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{type.Name}'?");
         if (confirmed)
         {
-            DbContext.AppointmentTypes.Remove(type);
-            await DbContext.SaveChangesAsync();
+            await TypesApi.DeleteAsync(type.Id);
             await LoadAppointmentTypes();
         }
     }
@@ -269,7 +250,7 @@
         [Required]
         [StringLength(500)]
         public string MessageTemplate { get; set; } = "";
-        
+
         [Required]
         [StringLength(500)]
         public string MinorMessageTemplate { get; set; } = "";

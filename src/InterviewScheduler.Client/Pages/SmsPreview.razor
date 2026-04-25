@@ -1,13 +1,12 @@
 @page "/sms-preview"
 @attribute [Authorize]
 @using InterviewScheduler.Core.Entities
-@using InterviewScheduler.Core.Interfaces
-@using InterviewScheduler.Infrastructure.Data
-@using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
+@inject IContactsApiClient ContactsApi
+@inject ILeadersApiClient LeadersApi
+@inject IAppointmentTypesApiClient AppointmentTypesApi
 @inject ISmsService SmsService
 @inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
+@rendermode InteractiveWebAssembly
 
 <PageTitle>SMS Preview</PageTitle>
 
@@ -27,7 +26,7 @@
                         @foreach (var contact in contacts)
                         {
                             <option value="@contact.Id">
-                                @contact.Salutation @contact.FullName 
+                                @contact.Salutation @contact.FullName
                                 @if (!string.IsNullOrEmpty(contact.PhoneNumber))
                                 {
                                     <text>(@contact.PhoneNumber)</text>
@@ -68,7 +67,7 @@
                     <input type="datetime-local" class="form-control" @bind="appointmentDateTime" />
                 </div>
 
-                <button class="btn btn-primary" @onclick="GeneratePreview" 
+                <button class="btn btn-primary" @onclick="GeneratePreview"
                         disabled="@(selectedContact == null || selectedLeader == null || selectedAppointmentType == null)">
                     Generate SMS Preview
                 </button>
@@ -82,7 +81,7 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Test Phone Number</label>
-                    <input type="text" class="form-control" @bind="testPhoneNumber" @bind:event="oninput" 
+                    <input type="text" class="form-control" @bind="testPhoneNumber" @bind:event="oninput"
                            placeholder="Enter phone number or multiple numbers separated by comma" />
                     <small class="form-text text-muted">You can test multiple phone numbers by separating them with commas (e.g., "555-1234, 555-5678")</small>
                 </div>
@@ -135,7 +134,7 @@
                             </div>
                             <div class="card-body">
                                 <p class="card-text">@message.Message</p>
-                                
+
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-outline-primary" @onclick="() => CopyToClipboard(message.Message)">
                                         <i class="bi bi-clipboard"></i> Copy Message
@@ -147,7 +146,7 @@
                                         <i class="bi bi-link-45deg"></i> Copy SMS Link
                                     </button>
                                 </div>
-                                
+
                                 <details class="mt-2">
                                     <summary class="text-muted">Show SMS Link</summary>
                                     <small class="text-break">@message.SmsLink</small>
@@ -200,7 +199,7 @@
                         </ul>
                     </div>
                 </div>
-                
+
                 <div class="mt-3">
                     <h5>Message Template Variables</h5>
                     <div class="table-responsive">
@@ -285,28 +284,39 @@
 
     private async Task LoadData()
     {
-        contacts = await DbContext.Contacts
-            .Include(c => c.HeadOfHouse)
-                .ThenInclude(h => h!.Spouse)
-            .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
-                       (c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
+        var contactDtos = await ContactsApi.GetAllAsync();
+        var leaderDtos = await LeadersApi.GetAllAsync();
+        var typeDtos = await AppointmentTypesApi.GetAllAsync();
+
+        // SmsService takes Core entities and walks HeadOfHouse / HeadOfHouse.Spouse
+        // navigation. Project DTOs back into the entity graph so the service stays unchanged.
+        var byId = contactDtos.ToDictionary(d => d.Id, ToContact);
+        foreach (var dto in contactDtos)
+        {
+            var contact = byId[dto.Id];
+            if (dto.HeadOfHouseId.HasValue && byId.TryGetValue(dto.HeadOfHouseId.Value, out var hoh))
+                contact.HeadOfHouse = hoh;
+            if (dto.SpouseId.HasValue && byId.TryGetValue(dto.SpouseId.Value, out var sp))
+                contact.Spouse = sp;
+        }
+
+        contacts = byId.Values
+            .Where(c => !string.IsNullOrEmpty(c.PhoneNumber) ||
+                        (c.IsMinor && c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
             .OrderBy(c => c.LastName)
             .ThenBy(c => c.FirstName)
-            .ToListAsync();
+            .ToList();
 
-        // Filter minors in memory after data is loaded
-        contacts = contacts.Where(c => !string.IsNullOrEmpty(c.PhoneNumber) || 
-                                      (c.IsMinor && c.HeadOfHouse != null && !string.IsNullOrEmpty(c.HeadOfHouse.PhoneNumber)))
-                           .ToList();
-
-        leaders = await DbContext.Leaders
+        leaders = leaderDtos
             .Where(l => l.IsActive)
+            .Select(ToLeader)
             .OrderBy(l => l.Title)
-            .ToListAsync();
+            .ToList();
 
-        appointmentTypes = await DbContext.AppointmentTypes
+        appointmentTypes = typeDtos
+            .Select(ToAppointmentType)
             .OrderBy(t => t.Name)
-            .ToListAsync();
+            .ToList();
     }
 
     private void GeneratePreview()
@@ -328,4 +338,46 @@
     {
         await JSRuntime.InvokeVoidAsync("open", smsLink, "_blank");
     }
+
+    private static Contact ToContact(ContactDto d) => new()
+    {
+        Id = d.Id,
+        FirstName = d.FirstName,
+        MiddleName = d.MiddleName,
+        LastName = d.LastName,
+        PhoneNumber = d.PhoneNumber,
+        Gender = d.Gender,
+        BirthDate = d.BirthDate,
+        HeadOfHouseId = d.HeadOfHouseId,
+        SpouseId = d.SpouseId
+    };
+
+    private static Leader ToLeader(LeaderDto d) => new()
+    {
+        Id = d.Id,
+        Name = d.Name,
+        Title = d.Title,
+        GoogleCalendarId = d.GoogleCalendarId,
+        IsActive = d.IsActive
+    };
+
+    private static AppointmentType ToAppointmentType(AppointmentTypeDto d) => new()
+    {
+        Id = d.Id,
+        Name = d.Name,
+        Duration = d.Duration,
+        MessageTemplate = d.MessageTemplate,
+        MinorMessageTemplate = d.MinorMessageTemplate,
+        BufferTimeBeforeMinutes = d.BufferTimeBeforeMinutes,
+        BufferTimeAfterMinutes = d.BufferTimeAfterMinutes,
+        MinimumDurationMinutes = d.MinimumDurationMinutes,
+        MaximumDurationMinutes = d.MaximumDurationMinutes,
+        MinimumAdvanceBookingHours = d.MinimumAdvanceBookingHours,
+        MaximumAdvanceBookingDays = d.MaximumAdvanceBookingDays,
+        SchedulingPriority = d.SchedulingPriority,
+        RequireStrictBufferTime = d.RequireStrictBufferTime,
+        AllowWeekendScheduling = d.AllowWeekendScheduling,
+        AllowAfterHoursScheduling = d.AllowAfterHoursScheduling,
+        ColorCode = d.ColorCode
+    };
 }

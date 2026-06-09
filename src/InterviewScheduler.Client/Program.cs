@@ -32,6 +32,7 @@ builder.Services.AddHttpClient<IAppointmentTypesApiClient, AppointmentTypesApiCl
 builder.Services.AddHttpClient<IAppointmentsApiClient, AppointmentsApiClient>(ConfigureClient);
 builder.Services.AddHttpClient<ICalendarApiClient, CalendarApiClient>(ConfigureClient);
 builder.Services.AddHttpClient<IScheduleApiClient, ScheduleApiClient>(ConfigureClient);
+builder.Services.AddScoped<IAppNotificationService, AppNotificationService>();
 
 // SmsService and SchedulingRulesService are pure logic from Shared and run in WASM unchanged.
 builder.Services.AddLogging();

@@ -9,6 +9,7 @@
 @inject ISmsService SmsService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject IAppNotificationService Notifications
 
 <PageTitle>Appointments</PageTitle>
 
@@ -71,79 +72,83 @@
                 </CardHeaderContent>
             </MudCardHeader>
             <MudCardContent Class="pa-0">
-                <MudTable Items="dayGroup.OrderBy(a => a.ScheduledTime)" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
-                    <HeaderContent>
-                        <MudTh>Time</MudTh>
-                        <MudTh>Contact</MudTh>
-                        <MudTh>Leader</MudTh>
-                        <MudTh>Type</MudTh>
-                        <MudTh>Status</MudTh>
-                        <MudTh Style="text-align:right">Actions</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Time">
-                            <MudText Typo="Typo.body2"><b>@context.ScheduledTime.ToString("h:mm tt")</b></MudText>
-                            <MudText Typo="Typo.caption">@context.AppointmentType?.Duration min</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Contact">
-                            <MudText Typo="Typo.body2"><b>@context.Contact?.FullName</b></MudText>
-                            <MudText Typo="Typo.caption">
-                                @if (!string.IsNullOrEmpty(context.Contact?.PhoneNumber))
+                <div class="appointments-table-view">
+                    <MudTable Items="dayGroup.OrderBy(a => a.ScheduledTime)" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.None">
+                        <HeaderContent>
+                            <MudTh>Time</MudTh>
+                            <MudTh>Contact</MudTh>
+                            <MudTh>Leader</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh Style="text-align:right">Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Time">
+                                <MudText Typo="Typo.body2"><b>@context.ScheduledTime.ToString("h:mm tt")</b></MudText>
+                                <MudText Typo="Typo.caption">@context.AppointmentType?.Duration min</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Contact">
+                                <MudText Typo="Typo.body2"><b>@context.Contact?.FullName</b></MudText>
+                                <MudText Typo="Typo.caption">@GetPhoneDisplay(context.Contact)</MudText>
+                                @if (context.Contact?.IsMinor == true)
                                 {
-                                    @context.Contact.PhoneNumber
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="mt-1">Minor</MudChip>
                                 }
-                                else if (context.Contact?.IsMinor == true && context.Contact?.HeadOfHouse != null)
-                                {
-                                    @GetParentPhoneDisplay(context.Contact)
-                                }
-                                else if (context.Contact?.IsMinor == false && context.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(context.Contact.HeadOfHouse.PhoneNumber))
-                                {
-                                    <span>via @context.Contact.HeadOfHouse.FirstName: @context.Contact.HeadOfHouse.PhoneNumber</span>
-                                }
-                                else
-                                {
-                                    <span>No phone</span>
-                                }
-                            </MudText>
-                            @if (context.Contact?.IsMinor == true)
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="mt-1">Minor</MudChip>
-                            }
-                        </MudTd>
-                        <MudTd DataLabel="Leader">
-                            <MudText Typo="Typo.body2"><b>@context.Leader?.Name</b></MudText>
-                            <MudText Typo="Typo.caption">@context.Leader?.Title</MudText>
-                        </MudTd>
-                        <MudTd DataLabel="Type">@context.AppointmentType?.Name</MudTd>
-                        <MudTd DataLabel="Status">@StatusChip(context.Status)</MudTd>
-                        <MudTd DataLabel="Actions" Style="text-align:right">
-                            <div class="d-flex flex-column gap-1 align-end">
-                                @if (context.Status == AppointmentStatus.Pending)
-                                {
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
-                                               StartIcon="@Icons.Material.Filled.Check" OnClick="() => ConfirmAppointment(context)">Confirm</MudButton>
-                                }
-                                @if (context.Status != AppointmentStatus.Cancelled)
-                                {
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
-                                               StartIcon="@Icons.Material.Filled.Close" OnClick="() => CancelAppointment(context)">Cancel</MudButton>
-                                }
-                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.Visibility" OnClick="() => ViewDetails(context)">Details</MudButton>
-                                @if (HasValidPhoneForSms(context))
-                                {
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
-                                               StartIcon="@Icons.Material.Filled.Smartphone" OnClick="() => SendSMSReminder(context)">SMS @GetSmsButtonLabel(context.Contact)</MudButton>
-                                }
-                                @if (context.Status == AppointmentStatus.Cancelled)
-                                {
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
-                                               StartIcon="@Icons.Material.Filled.Delete" OnClick="() => DeleteAppointment(context)">Delete</MudButton>
-                                }
+                            </MudTd>
+                            <MudTd DataLabel="Leader">
+                                <MudText Typo="Typo.body2"><b>@context.Leader?.Name</b></MudText>
+                                <MudText Typo="Typo.caption">@context.Leader?.Title</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Type">@context.AppointmentType?.Name</MudTd>
+                            <MudTd DataLabel="Status">@StatusChip(context.Status)</MudTd>
+                            <MudTd Style="text-align:right">
+                                @AppointmentActions(context, "appointment-actions--desktop")
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+
+                <div class="appointments-mobile-view">
+                    @foreach (var appointment in dayGroup.OrderBy(a => a.ScheduledTime))
+                    {
+                        <article class="appointment-mobile-card">
+                            <div class="appointment-mobile-card__header">
+                                <div>
+                                    <MudText Typo="Typo.subtitle1"><b>@appointment.ScheduledTime.ToString("h:mm tt")</b></MudText>
+                                    <MudText Typo="Typo.caption">@appointment.AppointmentType?.Duration min</MudText>
+                                </div>
+                                @StatusChip(appointment.Status)
                             </div>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
+
+                            <div class="appointment-mobile-card__body">
+                                <div class="appointment-mobile-card__title-row">
+                                    <MudText Typo="Typo.body1"><b>@appointment.Contact?.FullName</b></MudText>
+                                    @if (appointment.Contact?.IsMinor == true)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Info">Minor</MudChip>
+                                    }
+                                </div>
+
+                                <dl class="appointment-mobile-card__meta">
+                                    <div>
+                                        <dt>Type</dt>
+                                        <dd>@appointment.AppointmentType?.Name</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Leader</dt>
+                                        <dd>@appointment.Leader?.Name<span class="appointment-mobile-card__muted"> @appointment.Leader?.Title</span></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Phone</dt>
+                                        <dd>@GetPhoneDisplay(appointment.Contact)</dd>
+                                    </div>
+                                </dl>
+                            </div>
+
+                            @AppointmentActions(appointment, "appointment-actions--mobile")
+                        </article>
+                    }
+                </div>
             </MudCardContent>
         </MudCard>
     }
@@ -348,6 +353,31 @@ else
         }
     </text>;
 
+    private RenderFragment AppointmentActions(Appointment appointment, string className) =>@<div class="appointment-actions @className">
+        @if (appointment.Status == AppointmentStatus.Pending)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Check" OnClick="() => ConfirmAppointment(appointment)">Confirm</MudButton>
+        }
+        @if (appointment.Status != AppointmentStatus.Cancelled)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Close" OnClick="() => CancelAppointment(appointment)">Cancel</MudButton>
+        }
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Visibility" OnClick="() => ViewDetails(appointment)">Details</MudButton>
+        @if (HasValidPhoneForSms(appointment))
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.Smartphone" OnClick="() => SendSMSReminder(appointment)">SMS @GetSmsButtonLabel(appointment.Contact)</MudButton>
+        }
+        @if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Delete" OnClick="() => DeleteAppointment(appointment)">Delete</MudButton>
+        }
+    </div>;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -468,14 +498,16 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Failed to confirm appointment: {ex.Message}");
+            await Notifications.ShowErrorAsync("Confirm Appointment Failed", $"Failed to confirm appointment: {ex.Message}");
         }
     }
 
     private async Task CancelAppointment(Appointment appointment)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"Are you sure you want to cancel the appointment with {appointment.Contact?.FullName}?");
+        var confirmed = await Notifications.ConfirmAsync(
+            "Cancel Appointment",
+            $"Are you sure you want to cancel the appointment with {appointment.Contact?.FullName}?",
+            "Cancel Appointment");
 
         if (!confirmed) return;
 
@@ -489,7 +521,7 @@ else
         }
         catch (HttpRequestException ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert",
+            await Notifications.ShowErrorAsync("Cancel Appointment Failed",
                 $"Failed to cancel appointment: {ex.Message}. The calendar event may not have been removed.");
         }
     }
@@ -636,6 +668,23 @@ else
         return parentPhones.Any() ? string.Join(" | ", parentPhones) : "No parent phone";
     }
 
+    private string GetPhoneDisplay(Contact? contact)
+    {
+        if (contact == null)
+            return "No phone";
+
+        if (!string.IsNullOrEmpty(contact.PhoneNumber))
+            return contact.PhoneNumber;
+
+        if (contact.IsMinor && contact.HeadOfHouse != null)
+            return GetParentPhoneDisplay(contact);
+
+        if (!contact.IsMinor && contact.HeadOfHouse != null && !string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+            return $"via {contact.HeadOfHouse.FirstName}: {contact.HeadOfHouse.PhoneNumber}";
+
+        return "No phone";
+    }
+
     private string GetSmsButtonLabel(Contact? contact)
     {
         if (contact == null || !contact.IsMinor || contact.HeadOfHouse == null)
@@ -661,8 +710,10 @@ else
 
     private async Task DeleteAppointment(Appointment appointment)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"Are you sure you want to permanently delete this appointment with {appointment.Contact?.FullName}?");
+        var confirmed = await Notifications.ConfirmAsync(
+            "Delete Appointment",
+            $"Are you sure you want to permanently delete this appointment with {appointment.Contact?.FullName}?",
+            "Delete Appointment");
 
         if (!confirmed) return;
 
@@ -674,7 +725,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Failed to delete appointment: {ex.Message}");
+            await Notifications.ShowErrorAsync("Delete Appointment Failed", $"Failed to delete appointment: {ex.Message}");
         }
     }
 
@@ -682,12 +733,12 @@ else
     {
         if (string.IsNullOrEmpty(phoneNumber)) return;
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", phoneNumber);
-        await JSRuntime.InvokeVoidAsync("alert", "Phone number copied to clipboard!");
+        Notifications.ShowSuccess("Phone number copied to clipboard.");
     }
 
     private async Task CopyMessageToClipboard(string message)
     {
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", message);
-        await JSRuntime.InvokeVoidAsync("alert", "Message copied to clipboard!");
+        Notifications.ShowSuccess("Message copied to clipboard.");
     }
 }

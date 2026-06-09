@@ -6,6 +6,7 @@
 @inject IAppointmentTypesApiClient AppointmentTypesApi
 @inject ISmsService SmsService
 @inject IJSRuntime JSRuntime
+@inject IAppNotificationService Notifications
 
 <PageTitle>SMS Preview</PageTitle>
 
@@ -290,7 +291,7 @@
     private async Task CopyToClipboard(string text)
     {
         await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
-        await JSRuntime.InvokeVoidAsync("alert", "Copied to clipboard!");
+        Notifications.ShowSuccess("Copied to clipboard.");
     }
 
     private async Task OpenSmsLink(string smsLink)

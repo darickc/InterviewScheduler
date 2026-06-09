@@ -15,6 +15,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject ILogger<AppointmentWizard> Logger
+@inject IAppNotificationService Notifications
 
 <PageTitle>Schedule Appointment</PageTitle>
 
@@ -936,27 +937,23 @@ else if (currentStep == 4)
 
             var result = await ScheduleApi.CreateAsync(request);
 
-            var message = $"Automatic scheduling completed!\n\n";
-            message += $"✅ {result.AppointmentsCreated} appointments created\n";
-            message += $"📅 {result.CalendarEventsCreated} calendar events created\n";
+            var message = result.UnscheduledContacts.Any()
+                ? $"{result.AppointmentsCreated} appointment(s) created. {result.UnscheduledContacts.Count} contact(s) could not be scheduled."
+                : $"{result.AppointmentsCreated} appointment(s) created and {result.CalendarEventsCreated} calendar event(s) created.";
 
             if (result.UnscheduledContacts.Any())
             {
-                message += $"\n⚠️ Could not schedule {result.UnscheduledContacts.Count} contact(s):\n";
-                message += string.Join("\n", result.UnscheduledContacts);
-                message += "\n\nPlease try:\n- Selecting a different time range\n- Adding more leaders\n- Choosing a different date";
+                Notifications.ShowWarning(message);
             }
             else
             {
-                message += "\n🎉 All contacts successfully scheduled!";
+                Notifications.ShowSuccess(message);
             }
-
-            await JSRuntime.InvokeVoidAsync("alert", message);
             Navigation.NavigateTo("/appointments");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error creating appointments: {ex.Message}");
+            await Notifications.ShowErrorAsync("Create Appointments Failed", $"Error creating appointments: {ex.Message}");
         }
         finally
         {

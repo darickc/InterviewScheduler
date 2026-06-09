@@ -30,10 +30,11 @@
             @for (var i = 0; i < steps.Length; i++)
             {
                 var stepNo = i + 1;
+                var stepLabel = steps[i];
                 var active = currentStep >= stepNo;
                 <MudItem xs="3" Class="d-flex flex-column align-center text-center">
                     <MudAvatar Color="@(active ? Color.Primary : Color.Surface)" Size="Size.Small">@stepNo</MudAvatar>
-                    <MudText Typo="Typo.caption" Color="@(active ? Color.Primary : Color.Default)" Class="mt-1">@steps[i]</MudText>
+                    <MudText Typo="Typo.caption" Color="@(active ? Color.Primary : Color.Default)" Class="mt-1">@stepLabel</MudText>
                 </MudItem>
             }
         </MudGrid>

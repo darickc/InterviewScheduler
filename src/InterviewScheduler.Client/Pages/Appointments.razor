@@ -317,6 +317,7 @@ else
         }
         @if (selectedAppointment != null && selectedAppointment.Status != AppointmentStatus.Cancelled)
         {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Schedule" OnClick="() => OpenRescheduleDialog(selectedAppointment)">Reschedule</MudButton>
             <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="() => CancelAppointment(selectedAppointment)">Cancel Appointment</MudButton>
         }
         @if (selectedAppointment?.Status == AppointmentStatus.Cancelled)
@@ -326,17 +327,71 @@ else
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="showReschedule" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Reschedule Appointment</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (rescheduleAppointment != null)
+        {
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body2"><b>@rescheduleAppointment.Contact?.FullName</b></MudText>
+                    <MudText Typo="Typo.caption" Class="d-block">
+                        @rescheduleAppointment.AppointmentType?.Name (@rescheduleAppointment.AppointmentType?.Duration minutes)
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect T="int?" @bind-Value="rescheduleLeaderId" Label="Leader" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var leader in leaders)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)leader.Id)">@leader.Name (@leader.Title)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Date="RescheduleDateValue" DateChanged="OnRescheduleDateChanged" Label="Date"
+                                   MinDate="DateTime.Today" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTimePicker Time="RescheduleTimeValue" TimeChanged="OnRescheduleTimeChanged" Label="Time"
+                                   AmPm="true" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseRescheduleDialog" Disabled="@isRescheduling">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveReschedule" Disabled="@isRescheduling">
+            @if (isRescheduling)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            <span>Save Reschedule</span>
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<Appointment> appointments = new();
     private List<Leader> leaders = new();
     private Appointment? selectedAppointment;
+    private Appointment? rescheduleAppointment;
     private bool showDetails;
+    private bool showReschedule;
+    private bool isRescheduling;
     private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
 
     private string viewFilter = "all";
     private string searchTerm = "";
     private string leaderFilter = "";
     private string dateFilter = "upcoming";
+    private int? rescheduleLeaderId;
+    private DateTime rescheduleDate;
+    private TimeSpan? rescheduleTime;
+
+    private DateTime? RescheduleDateValue => rescheduleDate == default ? null : rescheduleDate;
+    private TimeSpan? RescheduleTimeValue => rescheduleTime;
 
     private RenderFragment StatusChip(AppointmentStatus status) =>@<text>
         @switch (status)
@@ -361,6 +416,8 @@ else
         }
         @if (appointment.Status != AppointmentStatus.Cancelled)
         {
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Schedule" OnClick="() => OpenRescheduleDialog(appointment)">Reschedule</MudButton>
             <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
                        StartIcon="@Icons.Material.Filled.Close" OnClick="() => CancelAppointment(appointment)">Cancel</MudButton>
         }
@@ -536,6 +593,67 @@ else
     {
         selectedAppointment = null;
         showDetails = false;
+    }
+
+    private void OpenRescheduleDialog(Appointment appointment)
+    {
+        rescheduleAppointment = appointment;
+        rescheduleLeaderId = appointment.LeaderId;
+        rescheduleDate = appointment.ScheduledTime.Date;
+        rescheduleTime = appointment.ScheduledTime.TimeOfDay;
+        showDetails = false;
+        showReschedule = true;
+    }
+
+    private void CloseRescheduleDialog()
+    {
+        rescheduleAppointment = null;
+        showReschedule = false;
+        isRescheduling = false;
+    }
+
+    private Task OnRescheduleDateChanged(DateTime? value)
+    {
+        rescheduleDate = value?.Date ?? default;
+        return Task.CompletedTask;
+    }
+
+    private Task OnRescheduleTimeChanged(TimeSpan? value)
+    {
+        rescheduleTime = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveReschedule()
+    {
+        if (rescheduleAppointment == null || !rescheduleLeaderId.HasValue || rescheduleDate == default || !rescheduleTime.HasValue)
+        {
+            await Notifications.ShowErrorAsync("Reschedule Appointment", "Select a leader, date, and time before saving.");
+            return;
+        }
+
+        isRescheduling = true;
+        try
+        {
+            var request = new RescheduleAppointmentRequest
+            {
+                LeaderId = rescheduleLeaderId.Value,
+                ScheduledTime = rescheduleDate.Date.Add(rescheduleTime.Value)
+            };
+
+            await AppointmentsApi.RescheduleAsync(rescheduleAppointment.Id, request);
+            await LoadData();
+            CloseRescheduleDialog();
+            Notifications.ShowSuccess("Appointment rescheduled.");
+        }
+        catch (Exception ex)
+        {
+            await Notifications.ShowErrorAsync("Reschedule Failed", ex.Message);
+        }
+        finally
+        {
+            isRescheduling = false;
+        }
     }
 
     private async Task SendSMSReminder(Appointment appointment)

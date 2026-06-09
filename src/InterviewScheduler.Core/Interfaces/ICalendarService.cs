@@ -8,6 +8,7 @@ public interface ICalendarService
 {
     // Existing DateTime-based methods for backward compatibility
     Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime);
+    Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime, string? ignoredEventId);
     Task<List<TimeSlot>> GetAvailableTimeSlotsAsync(string calendarId, DateTime startDate, DateTime endDate, int durationMinutes);
     Task<List<LeaderTimeRange>> GetCalendarEventsAsync(string calendarId, string leaderName, int leaderId, DateTime startTime, DateTime endTime);
     

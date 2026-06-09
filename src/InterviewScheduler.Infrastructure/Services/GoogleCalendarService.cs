@@ -102,6 +102,9 @@ public class GoogleCalendarService : ICalendarService
     }
 
     public async Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime)
+        => await IsTimeSlotAvailableAsync(calendarId, startTime, endTime, ignoredEventId: null);
+
+    public async Task<bool> IsTimeSlotAvailableAsync(string calendarId, DateTime startTime, DateTime endTime, string? ignoredEventId)
     {
         await EnsureAuthenticatedAsync();
 
@@ -113,7 +116,8 @@ public class GoogleCalendarService : ICalendarService
             request.SingleEvents = true;
 
             var events = await request.ExecuteAsync();
-            return !events.Items.Any();
+            return !(events.Items ?? new List<Event>())
+                .Any(e => string.IsNullOrEmpty(ignoredEventId) || e.Id != ignoredEventId);
         }
         catch (Exception ex)
         {

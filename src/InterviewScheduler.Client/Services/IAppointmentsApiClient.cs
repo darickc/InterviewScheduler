@@ -19,6 +19,7 @@ public interface IAppointmentsApiClient
     Task DeleteAsync(int id, CancellationToken ct = default);
     Task<AppointmentDto> ConfirmAsync(int id, CancellationToken ct = default);
     Task<AppointmentDto> CancelAsync(int id, CancellationToken ct = default);
+    Task<AppointmentDto> RescheduleAsync(int id, RescheduleAppointmentRequest request, CancellationToken ct = default);
 }
 
 public class AppointmentsApiClient : IAppointmentsApiClient
@@ -77,6 +78,18 @@ public class AppointmentsApiClient : IAppointmentsApiClient
     {
         var response = await _http.PostAsync($"api/appointments/{id}/cancel", content: null, ct);
         response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<AppointmentDto>(cancellationToken: ct))!;
+    }
+
+    public async Task<AppointmentDto> RescheduleAsync(int id, RescheduleAppointmentRequest request, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync($"api/appointments/{id}/reschedule", request, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(string.IsNullOrWhiteSpace(error) ? response.ReasonPhrase : error);
+        }
+
         return (await response.Content.ReadFromJsonAsync<AppointmentDto>(cancellationToken: ct))!;
     }
 }

@@ -150,6 +150,96 @@ public class AppointmentsController : ApiControllerBase
         return Ok(loaded!.ToDto());
     }
 
+    [HttpPost("{id:int}/reschedule")]
+    public async Task<IActionResult> Reschedule(int id, [FromBody] RescheduleAppointmentRequest request)
+    {
+        var user = await GetCurrentUserAsync();
+        if (user == null) return Unauthorized();
+
+        var appt = await _db.Appointments
+            .Include(a => a.Contact)
+            .Include(a => a.Leader)
+            .Include(a => a.AppointmentType)
+            .FirstOrDefaultAsync(a => a.Id == id && a.UserId == user.Id);
+
+        if (appt == null) return NotFound();
+        if (appt.Status == AppointmentStatus.Cancelled)
+            return BadRequest("Cancelled appointments cannot be rescheduled.");
+
+        var newLeader = await _db.Leaders
+            .FirstOrDefaultAsync(l => l.Id == request.LeaderId && l.UserId == user.Id && l.IsActive);
+
+        if (newLeader == null)
+            return BadRequest("Leader not found.");
+
+        if (string.IsNullOrWhiteSpace(newLeader.GoogleCalendarId))
+            return BadRequest("Selected leader does not have a Google Calendar configured.");
+
+        var durationMinutes = appt.AppointmentType?.Duration ?? 30;
+        var newEndTime = request.ScheduledTime.AddMinutes(durationMinutes);
+        var ignoredEventId = newLeader.GoogleCalendarId == appt.Leader?.GoogleCalendarId
+            ? appt.GoogleEventId
+            : null;
+
+        var isAvailable = await _calendar.IsTimeSlotAvailableAsync(
+            newLeader.GoogleCalendarId,
+            request.ScheduledTime,
+            newEndTime,
+            ignoredEventId);
+
+        if (!isAvailable)
+            return Conflict("Selected leader is not available at the requested time.");
+
+        var newCalendarAppointment = new Appointment
+        {
+            Id = appt.Id,
+            ContactId = appt.ContactId,
+            Contact = appt.Contact,
+            LeaderId = newLeader.Id,
+            Leader = newLeader,
+            AppointmentTypeId = appt.AppointmentTypeId,
+            AppointmentType = appt.AppointmentType,
+            ScheduledTime = request.ScheduledTime,
+            Status = appt.Status,
+            CreatedDate = appt.CreatedDate,
+            UserId = appt.UserId
+        };
+
+        string? newEventId;
+        try
+        {
+            newEventId = await _calendar.CreateEventAsync(newLeader.GoogleCalendarId, newCalendarAppointment);
+        }
+        catch
+        {
+            return StatusCode(502, "Failed to create the new Google Calendar event; appointment not rescheduled.");
+        }
+
+        if (string.IsNullOrEmpty(newEventId))
+            return StatusCode(502, "Failed to create the new Google Calendar event; appointment not rescheduled.");
+
+        var oldCalendarId = appt.Leader?.GoogleCalendarId;
+        if (!string.IsNullOrEmpty(appt.GoogleEventId) && !string.IsNullOrEmpty(oldCalendarId))
+        {
+            var oldDeleted = await _calendar.DeleteEventAsync(oldCalendarId, appt.GoogleEventId);
+            if (!oldDeleted)
+            {
+                await _calendar.DeleteEventAsync(newLeader.GoogleCalendarId, newEventId);
+                return StatusCode(502, "Failed to delete the old Google Calendar event; appointment not rescheduled.");
+            }
+        }
+
+        appt.LeaderId = newLeader.Id;
+        appt.Leader = newLeader;
+        appt.ScheduledTime = request.ScheduledTime;
+        appt.GoogleEventId = newEventId;
+
+        await _db.SaveChangesAsync();
+
+        var loaded = await LoadFullAppointment(appt.Id, user.Id);
+        return Ok(loaded!.ToDto());
+    }
+
     private Task<Appointment?> LoadFullAppointment(int id, int userId)
     {
         return _db.Appointments

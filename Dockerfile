@@ -1,5 +1,5 @@
 # Use the official .NET SDK image for building
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 # Set working directory
 WORKDIR /app
@@ -24,7 +24,7 @@ RUN dotnet build -c Release --no-restore
 RUN dotnet publish src/InterviewScheduler.Web/InterviewScheduler.Web.csproj -c Release -o /app/publish --no-restore
 
 # Use the official ASP.NET Core runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
 # Set working directory
 WORKDIR /app

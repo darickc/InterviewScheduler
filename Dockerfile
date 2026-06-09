@@ -1,5 +1,8 @@
-# Use the official .NET SDK image for building
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Use the official .NET SDK image for building.
+# Pinned to the 10.0.1xx band: the 10.0.3xx SDK band has a regression that drops
+# the host-side blazor.web.js framework asset from publish, causing a runtime 404
+# on /_framework/blazor.web.js. See dotnet/aspnetcore#65353 and #63962.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100 AS build
 
 # Set working directory
 WORKDIR /app

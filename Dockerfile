@@ -29,15 +29,15 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 # Set working directory
 WORKDIR /app
 
-# Create app user for security
-RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
-USER appuser
-
 # Copy published application
 COPY --from=build /app/publish .
 
-# Create directory for SQLite database
-RUN mkdir -p /app/data
+# Create data directory and give the built-in non-root 'app' user
+# ownership of /app so SQLite can create interviewscheduler.db at runtime
+RUN mkdir -p /app/data && chown -R $APP_UID /app
+
+# Run as the pre-created non-root user (UID via $APP_UID, .NET 8+ images)
+USER $APP_UID
 
 # # Set environment variables
 # ENV ASPNETCORE_URLS=http://+:8080

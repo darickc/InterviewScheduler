@@ -2,7 +2,7 @@
 # Pinned to the 10.0.1xx band: the 10.0.3xx SDK band has a regression that drops
 # the host-side blazor.web.js framework asset from publish, causing a runtime 404
 # on /_framework/blazor.web.js. See dotnet/aspnetcore#65353 and #63962.
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 # Set working directory
 WORKDIR /app
@@ -21,10 +21,11 @@ RUN dotnet restore
 # Copy source code
 COPY src/ ./src/
 
-# Build the application
-RUN dotnet build -c Release --no-restore
-
-# Publish the application
+# Publish the application.
+# NOTE: do not run a separate `dotnet build` before this. A prior build writes
+# static-web-asset caches into obj/ that a follow-up publish can reuse stale,
+# causing the Blazor Web host script (blazor.web.js) to be dropped from the
+# published _framework output (404 at runtime). Publish builds internally.
 RUN dotnet publish src/InterviewScheduler.Web/InterviewScheduler.Web.csproj -c Release -o /app/publish --no-restore
 
 # Use the official ASP.NET Core runtime image

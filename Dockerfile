@@ -10,6 +10,7 @@ COPY src/InterviewScheduler.Core/InterviewScheduler.Core.csproj ./src/InterviewS
 COPY src/InterviewScheduler.Infrastructure/InterviewScheduler.Infrastructure.csproj ./src/InterviewScheduler.Infrastructure/
 COPY src/InterviewScheduler.Shared/InterviewScheduler.Shared.csproj ./src/InterviewScheduler.Shared/
 COPY src/InterviewScheduler.Web/InterviewScheduler.Web.csproj ./src/InterviewScheduler.Web/
+COPY src/InterviewScheduler.Client/InterviewScheduler.Client.csproj ./src/InterviewScheduler.Client/
 
 # Restore dependencies
 RUN dotnet restore

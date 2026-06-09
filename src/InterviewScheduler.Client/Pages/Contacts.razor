@@ -6,167 +6,167 @@
 
 <PageTitle>Contacts</PageTitle>
 
-<h1>Contact Management</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">Contact Management</MudText>
 
-<div class="row">
-    <div class="col-md-12">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Import Contacts from CSV</h3>
+<MudCard Elevation="2" Class="mb-6">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">Import Contacts from CSV</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudFileUpload T="IBrowserFile" Accept=".csv" OnFilesChanged="LoadFiles" Disabled="@isImporting">
+            <CustomContent>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.UploadFile" Disabled="@isImporting"
+                           OnClick="@context.OpenFilePickerAsync">
+                    Choose CSV File
+                </MudButton>
+            </CustomContent>
+        </MudFileUpload>
+
+        @if (isImporting)
+        {
+            <div class="d-flex align-center mt-3">
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <MudText Typo="Typo.body2">Uploading and processing CSV...</MudText>
             </div>
-            <div class="card-body">
-                <InputFile OnChange="@LoadFiles" accept=".csv" disabled="@isImporting" />
-                @if (isImporting)
-                {
-                    <div class="mt-2 text-muted">
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        Uploading and processing CSV...
-                    </div>
-                }
-                @if (importMessage != null)
-                {
-                    <div class="alert @(importSuccess ? "alert-success" : "alert-danger") mt-3">
-                        @importMessage
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
+        }
+        @if (importMessage != null)
+        {
+            <MudAlert Severity="@(importSuccess ? Severity.Success : Severity.Error)" Class="mt-3">@importMessage</MudAlert>
+        }
+    </MudCardContent>
+</MudCard>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Contact List</MudText>
+
+<MudGrid Class="mb-2" Spacing="2">
+    <MudItem xs="12" md="4">
+        <MudTextField @bind-Value="searchTerm" Immediate="true" Placeholder="Search by name or phone..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+    </MudItem>
+    <MudItem xs="12" sm="4" md="2">
+        <MudSelect T="string" @bind-Value="genderFilter" Label="Gender" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            <MudSelectItem T="string" Value="@("")">All Genders</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Male")">Male</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Female")">Female</MudSelectItem>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="4" md="2">
+        <MudSelect T="string" @bind-Value="ageFilter" Label="Age" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            <MudSelectItem T="string" Value="@("")">All Ages</MudSelectItem>
+            <MudSelectItem T="string" Value="@("minor")">Minors (≤17)</MudSelectItem>
+            <MudSelectItem T="string" Value="@("adult")">Adults (18+)</MudSelectItem>
+            <MudSelectItem T="string" Value="@("senior")">Seniors (65+)</MudSelectItem>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="4" md="2">
+        <MudSelect T="string" @bind-Value="familyFilter" Label="Contacts" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            <MudSelectItem T="string" Value="@("")">All Contacts</MudSelectItem>
+            <MudSelectItem T="string" Value="@("head")">Heads of House</MudSelectItem>
+            <MudSelectItem T="string" Value="@("spouse")">Spouses</MudSelectItem>
+            <MudSelectItem T="string" Value="@("dependent")">Dependents</MudSelectItem>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="4" md="2" Class="d-flex align-center">
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ClearFilters" StartIcon="@Icons.Material.Filled.FilterAltOff">
+            Clear Filters
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+<div class="d-flex justify-space-between align-center mb-2">
+    <MudText Typo="Typo.body2">Showing @filteredContacts.Count() of @contacts.Count contacts</MudText>
+    <MudSwitch T="bool" @bind-Value="groupByFamily" Color="Color.Primary" Label="Group by Family" />
 </div>
 
-<div class="row">
-    <div class="col-md-12">
-        <h3>Contact List</h3>
-
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <input type="text" class="form-control" placeholder="Search by name or phone..."
-                       @bind="searchTerm" @bind:event="oninput" />
-            </div>
-            <div class="col-md-2">
-                <select class="form-control" @bind="genderFilter">
-                    <option value="">All Genders</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select class="form-control" @bind="ageFilter">
-                    <option value="">All Ages</option>
-                    <option value="minor">Minors (≤17)</option>
-                    <option value="adult">Adults (18+)</option>
-                    <option value="senior">Seniors (65+)</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select class="form-control" @bind="familyFilter">
-                    <option value="">All Contacts</option>
-                    <option value="head">Heads of House</option>
-                    <option value="spouse">Spouses</option>
-                    <option value="dependent">Dependents</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-secondary" @onclick="ClearFilters">Clear Filters</button>
-            </div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span>Showing @filteredContacts.Count() of @contacts.Count contacts</span>
-        </div>
-
-        <div class="mb-3">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" @bind="groupByFamily" id="groupByFamily">
-                <label class="form-check-label" for="groupByFamily">
-                    Group by Family
-                </label>
-            </div>
-        </div>
-
-        @if (filteredContacts.Any())
+@if (filteredContacts.Any())
+{
+    @if (groupByFamily)
+    {
+        @foreach (var family in GetFamilyGroups())
         {
-            @if (groupByFamily)
-            {
-                @foreach (var family in GetFamilyGroups())
-                {
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h5 class="mb-0">@family.Key's Household</h5>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Role</th>
-                                        <th>Phone</th>
-                                        <th>Gender</th>
-                                        <th>Age</th>
-                                        <th>Birth Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var member in family.Value.OrderBy(m => GetFamilyRoleOrder(m)))
-                                    {
-                                        <tr class="@(member.IsMinor ? "table-info" : "")">
-                                            <td>
-                                                @member.FullName
-                                                @if (member.IsMinor)
-                                                {
-                                                    <span class="badge bg-info">Minor</span>
-                                                }
-                                            </td>
-                                            <td>@GetFamilyRole(member)</td>
-                                            <td>@member.PhoneNumber</td>
-                                            <td>@member.Gender</td>
-                                            <td>@member.Age</td>
-                                            <td>@member.BirthDate.ToShortDateString()</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                }
-            }
-            else
-            {
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Phone</th>
-                            <th>Gender</th>
-                            <th>Age</th>
-                            <th>Birth Date</th>
-                            <th>Head of House</th>
-                            <th>Spouse</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var contact in filteredContacts)
-                        {
+            <MudCard Elevation="1" Class="mb-3">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1">@family.Key's Household</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                        <thead>
                             <tr>
-                                <td>@contact.FullName</td>
-                                <td>@contact.PhoneNumber</td>
-                                <td>@contact.Gender</td>
-                                <td>@contact.Age @(contact.IsMinor ? "(Minor)" : "")</td>
-                                <td>@contact.BirthDate.ToShortDateString()</td>
-                                <td>@contact.HeadOfHouse?.FullName</td>
-                                <td>@contact.Spouse?.FullName</td>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Phone</th>
+                                <th>Gender</th>
+                                <th>Age</th>
+                                <th>Birth Date</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            }
+                        </thead>
+                        <tbody>
+                            @foreach (var member in family.Value.OrderBy(m => GetFamilyRoleOrder(m)))
+                            {
+                                <tr>
+                                    <td>
+                                        @member.FullName
+                                        @if (member.IsMinor)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-1">Minor</MudChip>
+                                        }
+                                    </td>
+                                    <td>@GetFamilyRole(member)</td>
+                                    <td>@member.PhoneNumber</td>
+                                    <td>@member.Gender</td>
+                                    <td>@member.Age</td>
+                                    <td>@member.BirthDate.ToShortDateString()</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudCardContent>
+            </MudCard>
         }
-        else
-        {
-            <p>No contacts found.</p>
-        }
-    </div>
-</div>
+    }
+    else
+    {
+        <MudTable Items="filteredContacts" Dense="true" Hover="true" Striped="true" Bordered="false" FixedHeader="true">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Phone</MudTh>
+                <MudTh>Gender</MudTh>
+                <MudTh>Age</MudTh>
+                <MudTh>Birth Date</MudTh>
+                <MudTh>Head of House</MudTh>
+                <MudTh>Spouse</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">
+                    @context.FullName
+                    @if (context.IsMinor)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-1">Minor</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Phone">@context.PhoneNumber</MudTd>
+                <MudTd DataLabel="Gender">@context.Gender</MudTd>
+                <MudTd DataLabel="Age">@context.Age</MudTd>
+                <MudTd DataLabel="Birth Date">@context.BirthDate.ToShortDateString()</MudTd>
+                <MudTd DataLabel="Head of House">@context.HeadOfHouse?.FullName</MudTd>
+                <MudTd DataLabel="Spouse">@context.Spouse?.FullName</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined">No contacts found.</MudAlert>
+}
 
 @code {
     private List<Contact> contacts = new();

@@ -9,256 +9,212 @@
 
 <PageTitle>SMS Preview</PageTitle>
 
-<h1>SMS Link Generator & Preview</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">SMS Link Generator &amp; Preview</MudText>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3>Test SMS Generator</h3>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Contact</label>
-                    <select class="form-control" @bind="selectedContactId">
-                        <option value="">Select a contact</option>
-                        @foreach (var contact in contacts)
-                        {
-                            <option value="@contact.Id">
-                                @contact.Salutation @contact.FullName
-                                @if (!string.IsNullOrEmpty(contact.PhoneNumber))
-                                {
-                                    <text>(@contact.PhoneNumber)</text>
-                                }
-                                else if (contact.IsMinor && contact.HeadOfHouse != null && !string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
-                                {
-                                    <text>(Minor - Parent: @contact.HeadOfHouse.PhoneNumber)</text>
-                                }
-                            </option>
-                        }
-                    </select>
-                </div>
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Test SMS Generator</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudSelect T="int?" @bind-Value="selectedContactId" Label="Contact" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Clearable="true">
+                    @foreach (var contact in contacts)
+                    {
+                        <MudSelectItem T="int?" Value="@contact.Id">
+                            @contact.Salutation @contact.FullName
+                            @if (!string.IsNullOrEmpty(contact.PhoneNumber))
+                            {
+                                <text> (@contact.PhoneNumber)</text>
+                            }
+                            else if (contact.IsMinor && contact.HeadOfHouse != null && !string.IsNullOrEmpty(contact.HeadOfHouse.PhoneNumber))
+                            {
+                                <text> (Minor - Parent: @contact.HeadOfHouse.PhoneNumber)</text>
+                            }
+                        </MudSelectItem>
+                    }
+                </MudSelect>
 
-                <div class="mb-3">
-                    <label class="form-label">Leader</label>
-                    <select class="form-control" @bind="selectedLeaderId">
-                        <option value="">Select a leader</option>
-                        @foreach (var leader in leaders)
-                        {
-                            <option value="@leader.Id">@leader.Name (@leader.Title)</option>
-                        }
-                    </select>
-                </div>
+                <MudSelect T="int?" @bind-Value="selectedLeaderId" Label="Leader" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Clearable="true">
+                    @foreach (var leader in leaders)
+                    {
+                        <MudSelectItem T="int?" Value="@leader.Id">@leader.Name (@leader.Title)</MudSelectItem>
+                    }
+                </MudSelect>
 
-                <div class="mb-3">
-                    <label class="form-label">Appointment Type</label>
-                    <select class="form-control" @bind="selectedAppointmentTypeId">
-                        <option value="">Select appointment type</option>
-                        @foreach (var type in appointmentTypes)
-                        {
-                            <option value="@type.Id">@type.Name</option>
-                        }
-                    </select>
-                </div>
+                <MudSelect T="int?" @bind-Value="selectedAppointmentTypeId" Label="Appointment Type" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Clearable="true">
+                    @foreach (var type in appointmentTypes)
+                    {
+                        <MudSelectItem T="int?" Value="@type.Id">@type.Name</MudSelectItem>
+                    }
+                </MudSelect>
 
-                <div class="mb-3">
-                    <label class="form-label">Appointment Date & Time</label>
-                    <input type="datetime-local" class="form-control" @bind="appointmentDateTime" />
-                </div>
+                <MudGrid Spacing="2" Class="mb-3">
+                    <MudItem xs="7">
+                        <MudDatePicker @bind-Date="apptDate" Label="Appointment Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="5">
+                        <MudTimePicker @bind-Time="apptTime" Label="Time" Variant="Variant.Outlined" Margin="Margin.Dense" AmPm="true" />
+                    </MudItem>
+                </MudGrid>
 
-                <button class="btn btn-primary" @onclick="GeneratePreview"
-                        disabled="@(selectedContact == null || selectedLeader == null || selectedAppointmentType == null)">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Preview"
+                           OnClick="GeneratePreview"
+                           Disabled="@(selectedContact == null || selectedLeader == null || selectedAppointmentType == null)">
                     Generate SMS Preview
-                </button>
-            </div>
-        </div>
+                </MudButton>
+            </MudCardContent>
+        </MudCard>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <h3>Phone Number Validator</h3>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Test Phone Number</label>
-                    <input type="text" class="form-control" @bind="testPhoneNumber" @bind:event="oninput"
-                           placeholder="Enter phone number or multiple numbers separated by comma" />
-                    <small class="form-text text-muted">You can test multiple phone numbers by separating them with commas (e.g., "555-1234, 555-5678")</small>
-                </div>
+        <MudCard Elevation="2" Class="mt-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Phone Number Validator</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTextField @bind-Value="testPhoneNumber" Immediate="true" Label="Test Phone Number" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Placeholder="Enter phone number or multiple numbers separated by comma"
+                              HelperText='You can test multiple numbers by separating with commas (e.g., "555-1234, 555-5678")' />
 
                 @if (!string.IsNullOrWhiteSpace(testPhoneNumber))
                 {
-                    <div class="row">
-                        <div class="col-md-6">
-                            <strong>Original:</strong> @testPhoneNumber
-                        </div>
-                        <div class="col-md-6">
-                            <strong>Sanitized:</strong> @SmsService.SanitizePhoneNumbers(testPhoneNumber)
-                        </div>
-                    </div>
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2"><b>Original:</b> @testPhoneNumber</MudText></MudItem>
+                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2"><b>Sanitized:</b> @SmsService.SanitizePhoneNumbers(testPhoneNumber)</MudText></MudItem>
+                    </MudGrid>
                     <div class="mt-2">
                         @if (SmsService.IsValidPhoneNumber(testPhoneNumber))
                         {
-                            <span class="badge bg-success">✓ Valid Phone Number</span>
+                            <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">Valid Phone Number</MudChip>
                         }
                         else
                         {
-                            <span class="badge bg-danger">✗ Invalid Phone Number</span>
+                            <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.Cancel">Invalid Phone Number</MudChip>
                         }
                     </div>
                 }
-            </div>
-        </div>
-    </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-    <div class="col-md-6">
+    <MudItem xs="12" md="6">
         @if (generatedMessages.Any())
         {
-            <div class="card">
-                <div class="card-header">
-                    <h3>Generated SMS Messages (@generatedMessages.Count)</h3>
-                </div>
-                <div class="card-body">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Generated SMS Messages (@generatedMessages.Count)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
                     @foreach (var message in generatedMessages)
                     {
-                        <div class="card mb-3 @(message.IsMinorNotification ? "border-info" : "border-primary")">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>
-                                    <strong>@message.ContactName</strong>
-                                    @if (message.IsMinorNotification)
-                                    {
-                                        <span class="badge bg-info ms-2">Parent Notification</span>
-                                    }
-                                </span>
-                                <small class="text-muted">@message.PhoneNumber</small>
-                            </div>
-                            <div class="card-body">
-                                <p class="card-text">@message.Message</p>
+                        <MudCard Outlined="true" Class="mb-3">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <div class="d-flex justify-space-between align-center">
+                                        <span>
+                                            <b>@message.ContactName</b>
+                                            @if (message.IsMinorNotification)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-2">Parent Notification</MudChip>
+                                            }
+                                        </span>
+                                        <MudText Typo="Typo.caption">@message.PhoneNumber</MudText>
+                                    </div>
+                                </CardHeaderContent>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudText Typo="Typo.body2" Class="mb-3">@message.Message</MudText>
 
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => CopyToClipboard(message.Message)">
-                                        <i class="bi bi-clipboard"></i> Copy Message
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-success" @onclick="() => OpenSmsLink(message.SmsLink)">
-                                        <i class="bi bi-phone"></i> Open SMS App
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-info" @onclick="() => CopyToClipboard(message.SmsLink)">
-                                        <i class="bi bi-link-45deg"></i> Copy SMS Link
-                                    </button>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyToClipboard(message.Message)">
+                                        Copy Message
+                                    </MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                               StartIcon="@Icons.Material.Filled.Smartphone" OnClick="() => OpenSmsLink(message.SmsLink)">
+                                        Open SMS App
+                                    </MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                                               StartIcon="@Icons.Material.Filled.Link" OnClick="() => CopyToClipboard(message.SmsLink)">
+                                        Copy SMS Link
+                                    </MudButton>
                                 </div>
 
-                                <details class="mt-2">
-                                    <summary class="text-muted">Show SMS Link</summary>
-                                    <small class="text-break">@message.SmsLink</small>
-                                </details>
-                            </div>
-                        </div>
+                                <MudExpansionPanels Class="mt-2" Elevation="0">
+                                    <MudExpansionPanel Text="Show SMS Link">
+                                        <MudText Typo="Typo.caption" Style="word-break: break-all;">@message.SmsLink</MudText>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
+                            </MudCardContent>
+                        </MudCard>
                     }
-                </div>
-            </div>
+                </MudCardContent>
+            </MudCard>
         }
         else
         {
-            <div class="card">
-                <div class="card-body text-center text-muted">
-                    <i class="bi bi-chat-text" style="font-size: 3rem;"></i>
-                    <h5 class="mt-3">No Messages Generated</h5>
-                    <p>Select contact, leader, and appointment details to generate SMS preview</p>
-                </div>
-            </div>
+            <MudPaper Elevation="2" Class="pa-8 d-flex flex-column align-center justify-center" Style="min-height: 200px;">
+                <MudIcon Icon="@Icons.Material.Filled.Sms" Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.h6" Class="mt-3">No Messages Generated</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center">Select contact, leader, and appointment details to generate SMS preview</MudText>
+            </MudPaper>
         }
-    </div>
-</div>
+    </MudItem>
+</MudGrid>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h3>SMS Link Format Information</h3>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h5>Supported Formats</h5>
-                        <ul>
-                            <li><code>sms:+1234567890?body=message</code> - Standard SMS URI</li>
-                            <li><code>sms:+1234567890,+1234567891?body=message</code> - Multiple recipients</li>
-                            <li><code>sms:+1234567890&body=message</code> - Alternative format</li>
-                            <li>Works with most mobile devices and SMS apps</li>
-                            <li>Message content is URL-encoded for safety</li>
-                            <li>Multiple recipients are comma-separated</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h5>Phone Number Processing</h5>
-                        <ul>
-                            <li>Automatically adds +1 for US numbers</li>
-                            <li>Removes formatting characters (spaces, dashes, parentheses)</li>
-                            <li>Validates against US and international formats</li>
-                            <li>Supports 10-digit US numbers and international format</li>
-                        </ul>
-                    </div>
-                </div>
+<MudCard Elevation="2" Class="mt-4">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">SMS Link Format Information</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle1" GutterBottom="true">Supported Formats</MudText>
+                <MudList T="string" Dense="true">
+                    <MudListItem T="string"><code>sms:+1234567890?body=message</code> - Standard SMS URI</MudListItem>
+                    <MudListItem T="string"><code>sms:+1234567890,+1234567891?body=message</code> - Multiple recipients</MudListItem>
+                    <MudListItem T="string"><code>sms:+1234567890&body=message</code> - Alternative format</MudListItem>
+                    <MudListItem T="string">Works with most mobile devices and SMS apps</MudListItem>
+                    <MudListItem T="string">Message content is URL-encoded for safety</MudListItem>
+                    <MudListItem T="string">Multiple recipients are comma-separated</MudListItem>
+                </MudList>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.subtitle1" GutterBottom="true">Phone Number Processing</MudText>
+                <MudList T="string" Dense="true">
+                    <MudListItem T="string">Automatically adds +1 for US numbers</MudListItem>
+                    <MudListItem T="string">Removes formatting characters (spaces, dashes, parentheses)</MudListItem>
+                    <MudListItem T="string">Validates against US and international formats</MudListItem>
+                    <MudListItem T="string">Supports 10-digit US numbers and international format</MudListItem>
+                </MudList>
+            </MudItem>
+        </MudGrid>
 
-                <div class="mt-3">
-                    <h5>Message Template Variables</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Variable</th>
-                                    <th>Description</th>
-                                    <th>Example</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><code>{ContactName}</code></td>
-                                    <td>Contact's salutation and full name</td>
-                                    <td>Brother John Smith</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{LeaderName}</code></td>
-                                    <td>Leader's name</td>
-                                    <td>Bishop Johnson</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{LeaderTitle}</code></td>
-                                    <td>Leader's title</td>
-                                    <td>Bishop</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{DateTime}</code></td>
-                                    <td>Full date and time</td>
-                                    <td>Monday, January 15 at 2:00 PM</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{Date}</code></td>
-                                    <td>Date only</td>
-                                    <td>Monday, January 15</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{Time}</code></td>
-                                    <td>Time only</td>
-                                    <td>2:00 PM</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{Duration}</code></td>
-                                    <td>Appointment duration in minutes</td>
-                                    <td>30</td>
-                                </tr>
-                                <tr>
-                                    <td><code>{AppointmentType}</code></td>
-                                    <td>Type of appointment</td>
-                                    <td>Temple Recommend Interview</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+        <MudText Typo="Typo.subtitle1" GutterBottom="true" Class="mt-4">Message Template Variables</MudText>
+        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+            <thead>
+                <tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>{ContactName}</code></td><td>Contact's salutation and full name</td><td>Brother John Smith</td></tr>
+                <tr><td><code>{LeaderName}</code></td><td>Leader's name</td><td>Bishop Johnson</td></tr>
+                <tr><td><code>{LeaderTitle}</code></td><td>Leader's title</td><td>Bishop</td></tr>
+                <tr><td><code>{DateTime}</code></td><td>Full date and time</td><td>Monday, January 15 at 2:00 PM</td></tr>
+                <tr><td><code>{Date}</code></td><td>Date only</td><td>Monday, January 15</td></tr>
+                <tr><td><code>{Time}</code></td><td>Time only</td><td>2:00 PM</td></tr>
+                <tr><td><code>{Duration}</code></td><td>Appointment duration in minutes</td><td>30</td></tr>
+                <tr><td><code>{AppointmentType}</code></td><td>Type of appointment</td><td>Temple Recommend Interview</td></tr>
+            </tbody>
+        </MudSimpleTable>
+    </MudCardContent>
+</MudCard>
 
 @code {
     private List<Contact> contacts = new();
@@ -271,6 +227,18 @@
     private int? selectedAppointmentTypeId;
     private DateTime appointmentDateTime = DateTime.Now.AddDays(1);
     private string testPhoneNumber = "";
+
+    // MudDatePicker.Date is DateTime? and MudTimePicker.Time is TimeSpan?; adapt to the single appointmentDateTime.
+    private DateTime? apptDate
+    {
+        get => appointmentDateTime.Date;
+        set => appointmentDateTime = (value?.Date ?? appointmentDateTime.Date) + appointmentDateTime.TimeOfDay;
+    }
+    private TimeSpan? apptTime
+    {
+        get => appointmentDateTime.TimeOfDay;
+        set => appointmentDateTime = appointmentDateTime.Date + (value ?? appointmentDateTime.TimeOfDay);
+    }
 
     private Contact? selectedContact => selectedContactId.HasValue ? contacts.FirstOrDefault(c => c.Id == selectedContactId.Value) : null;
     private Leader? selectedLeader => selectedLeaderId.HasValue ? leaders.FirstOrDefault(l => l.Id == selectedLeaderId.Value) : null;

@@ -1,24 +1,35 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" />
+        <MudText Typo="Typo.h6" Class="ml-2">Interview Scheduler</MudText>
+        <MudSpacer />
+        <MudLink Href="https://learn.microsoft.com/aspnet/core/" Target="_blank" Color="Color.Inherit" Class="mr-4">About</MudLink>
+        <UserInfo />
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2"
+               Breakpoint="Breakpoint.Md"
+               Variant="DrawerVariant.Responsive">
         <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4 d-flex justify-content-between">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-            <UserInfo />
-        </div>
-
-        <article class="content px-4">
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-6">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void DrawerToggle() => _drawerOpen = !_drawerOpen;
+}

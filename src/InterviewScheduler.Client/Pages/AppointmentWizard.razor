@@ -18,537 +18,476 @@
 
 <PageTitle>Schedule Appointment</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <h1>Schedule New Appointment</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">Schedule New Appointment</MudText>
 
-            <!-- Progress Bar -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <div class="progress mb-3">
-                        <div class="progress-bar" role="progressbar" style="width: @(((currentStep - 1) * 100 / 3))%"
-                             aria-valuenow="@currentStep" aria-valuemin="0" aria-valuemax="4"></div>
-                    </div>
-                    <div class="row text-center">
-                        <div class="col step @(currentStep >= 1 ? "active" : "")">
-                            <span class="step-number">1</span>
-                            <br><small>Select Contacts</small>
-                        </div>
-                        <div class="col step @(currentStep >= 2 ? "active" : "")">
-                            <span class="step-number">2</span>
-                            <br><small>Choose Leaders</small>
-                        </div>
-                        <div class="col step @(currentStep >= 3 ? "active" : "")">
-                            <span class="step-number">3</span>
-                            <br><small>Appointment Details</small>
-                        </div>
-                        <div class="col step @(currentStep >= 4 ? "active" : "")">
-                            <span class="step-number">4</span>
-                            <br><small>Review & Send</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step Content -->
-            @if (currentStep == 1)
+<MudCard Elevation="2" Class="mb-4">
+    <MudCardContent>
+        <MudProgressLinear Color="Color.Primary" Value="@(((currentStep - 1) * 100.0 / 3))" Class="mb-4" Size="Size.Large" Rounded="true" />
+        <MudGrid>
+            @{
+                var steps = new[] { "Select Contacts", "Choose Leaders", "Appointment Details", "Review & Send" };
+            }
+            @for (var i = 0; i < steps.Length; i++)
             {
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Step 1: Select Contacts</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <input type="text" class="form-control" placeholder="Search contacts..."
-                                       @bind="contactSearchTerm" @bind:event="oninput" />
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-control" @bind="contactGenderFilter">
-                                    <option value="">All Genders</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-control" @bind="contactAgeFilter">
-                                    <option value="">All Ages</option>
-                                    <option value="minor">Minors (≤17)</option>
-                                    <option value="adult">Adults (18+)</option>
-                                </select>
-                            </div>
-                        </div>
+                var stepNo = i + 1;
+                var active = currentStep >= stepNo;
+                <MudItem xs="3" Class="d-flex flex-column align-center text-center">
+                    <MudAvatar Color="@(active ? Color.Primary : Color.Surface)" Size="Size.Small">@stepNo</MudAvatar>
+                    <MudText Typo="Typo.caption" Color="@(active ? Color.Primary : Color.Default)" Class="mt-1">@steps[i]</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
 
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5>Available Contacts</h5>
-                                <div class="list-group" style="max-height: 400px; overflow-y: auto;">
-                                    @foreach (var contact in filteredContacts)
-                                    {
-                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+@if (currentStep == 1)
+{
+    <MudCard Elevation="2">
+        <MudCardHeader>
+            <CardHeaderContent><MudText Typo="Typo.h6">Step 1: Select Contacts</MudText></CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid Class="mb-3" Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="contactSearchTerm" Immediate="true" Placeholder="Search contacts..."
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+                </MudItem>
+                <MudItem xs="6" md="3">
+                    <MudSelect T="string" @bind-Value="contactGenderFilter" Label="Gender" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="string" Value="@("")">All Genders</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Male")">Male</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Female")">Female</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" md="3">
+                    <MudSelect T="string" @bind-Value="contactAgeFilter" Label="Age" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem T="string" Value="@("")">All Ages</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("minor")">Minors (≤17)</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("adult")">Adults (18+)</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Available Contacts</MudText>
+                    <MudPaper Outlined="true" Style="max-height: 400px; overflow-y: auto;">
+                        <MudList T="string" Dense="true">
+                            @foreach (var contact in filteredContacts)
+                            {
+                                <MudListItem T="string">
+                                    <div class="d-flex justify-space-between align-center">
+                                        <div>
+                                            <MudText Typo="Typo.body2"><b>@contact.FullName</b></MudText>
+                                            <MudText Typo="Typo.caption">@contact.PhoneNumber • Age: @contact.Age @(contact.IsMinor ? "(Minor)" : "")</MudText>
+                                            @if (contact.HeadOfHouse != null)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="d-block">Head of House: @contact.HeadOfHouse.FullName</MudText>
+                                            }
+                                        </div>
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="() => SelectContact(contact)">Select</MudButton>
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Selected Contacts (@selectedContacts.Count)</MudText>
+                    @if (selectedContacts.Any())
+                    {
+                        <MudPaper Outlined="true">
+                            <MudList T="string" Dense="true">
+                                @foreach (var contact in selectedContacts)
+                                {
+                                    <MudListItem T="string">
+                                        <div class="d-flex justify-space-between align-center">
                                             <div>
-                                                <strong>@contact.FullName</strong>
-                                                <br><small>@contact.PhoneNumber • Age: @contact.Age @(contact.IsMinor ? "(Minor)" : "")</small>
-                                                @if (contact.HeadOfHouse != null)
+                                                <MudText Typo="Typo.body2"><b>@contact.FullName</b></MudText>
+                                                <MudText Typo="Typo.caption">@contact.PhoneNumber</MudText>
+                                                @if (contact.IsMinor)
                                                 {
-                                                    <br><small class="text-muted">Head of House: @contact.HeadOfHouse.FullName</small>
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-2">Minor - Parent will be notified</MudChip>
                                                 }
                                             </div>
-                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => SelectContact(contact)">
-                                                Select
-                                            </button>
+                                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick="() => RemoveContact(contact)">Remove</MudButton>
                                         </div>
-                                    }
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h5>Selected Contacts (@selectedContacts.Count)</h5>
-                                @if (selectedContacts.Any())
-                                {
-                                    <div class="list-group">
-                                        @foreach (var contact in selectedContacts)
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">No contacts selected</MudText>
+                    }
+                </MudItem>
+            </MudGrid>
+
+            <div class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="NextStep" Disabled="@(!selectedContacts.Any())">
+                    Next: Choose Leaders
+                </MudButton>
+            </div>
+        </MudCardContent>
+    </MudCard>
+}
+else if (currentStep == 2)
+{
+    <MudCard Elevation="2">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">Step 2: Choose Leaders</MudText>
+                <MudText Typo="Typo.body2">Select one or more leaders for scheduling appointments. The system will automatically distribute contacts across available time slots.</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Available Leaders</MudText>
+                    <MudGrid>
+                        @foreach (var leader in activeLeaders)
+                        {
+                            var isSelected = selectedLeaders.Contains(leader);
+                            <MudItem xs="12" sm="6">
+                                <MudCard Outlined="true" Style="@(isSelected ? "border-color: var(--mud-palette-primary); border-width: 2px;" : "")">
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.subtitle2">@leader.Name</MudText>
+                                        <MudText Typo="Typo.caption" Class="d-block mb-2">@leader.Title</MudText>
+                                        @if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
                                         {
-                                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <strong>@contact.FullName</strong>
-                                                    <br><small>@contact.PhoneNumber</small>
-                                                    @if (contact.IsMinor)
-                                                    {
-                                                        <span class="badge bg-info ms-2">Minor - Parent will be notified</span>
-                                                    }
-                                                </div>
-                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveContact(contact)">
-                                                    Remove
-                                                </button>
+                                            <MudText Typo="Typo.caption" Color="Color.Success">
+                                                <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Small" /> Calendar Available
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Warning">
+                                                <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Small" /> No Calendar
+                                            </MudText>
+                                        }
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        <MudButton Size="Size.Small" Variant="@(isSelected ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                                                   OnClick="() => ToggleLeader(leader)">
+                                            @(isSelected ? "Remove" : "Select")
+                                        </MudButton>
+                                    </MudCardActions>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Selected Leaders (@selectedLeaders.Count)</MudText>
+                    @if (selectedLeaders.Any())
+                    {
+                        <MudPaper Outlined="true">
+                            <MudList T="string" Dense="true">
+                                @foreach (var leader in selectedLeaders)
+                                {
+                                    <MudListItem T="string">
+                                        <div class="d-flex justify-space-between align-center">
+                                            <div>
+                                                <MudText Typo="Typo.body2"><b>@leader.Name</b></MudText>
+                                                <MudText Typo="Typo.caption">@leader.Title</MudText>
                                             </div>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="text-muted">No contacts selected</p>
-                                }
-                            </div>
-                        </div>
-
-                        <div class="mt-3">
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(!selectedContacts.Any())">
-                                Next: Choose Leaders
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (currentStep == 2)
-            {
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Step 2: Choose Leaders</h3>
-                        <p class="mb-0">Select one or more leaders for scheduling appointments. The system will automatically distribute contacts across available time slots.</p>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <h5>Available Leaders</h5>
-                                <div class="row">
-                                    @foreach (var leader in activeLeaders)
-                                    {
-                                        <div class="col-md-6 mb-3">
-                                            <div class="card @(selectedLeaders.Contains(leader) ? "border-primary" : "")">
-                                                <div class="card-body">
-                                                    <h6>@leader.Name</h6>
-                                                    <p class="text-muted small mb-2">@leader.Title</p>
-                                                    @if (!string.IsNullOrEmpty(leader.GoogleCalendarId))
-                                                    {
-                                                        <small class="text-success">
-                                                            <i class="bi bi-calendar-check"></i> Calendar Available
-                                                        </small>
-                                                    }
-                                                    else
-                                                    {
-                                                        <small class="text-warning">
-                                                            <i class="bi bi-calendar-x"></i> No Calendar
-                                                        </small>
-                                                    }
-                                                    <br>
-                                                    <button class="btn @(selectedLeaders.Contains(leader) ? "btn-primary" : "btn-outline-primary") btn-sm mt-2"
-                                                            @onclick="() => ToggleLeader(leader)">
-                                                        @(selectedLeaders.Contains(leader) ? "Remove" : "Select")
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick="() => ToggleLeader(leader)">Remove</MudButton>
                                         </div>
-                                    }
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <h5>Selected Leaders (@selectedLeaders.Count)</h5>
-                                @if (selectedLeaders.Any())
-                                {
-                                    <div class="list-group">
-                                        @foreach (var leader in selectedLeaders)
-                                        {
-                                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <strong>@leader.Name</strong>
-                                                    <br><small>@leader.Title</small>
-                                                </div>
-                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ToggleLeader(leader)">
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        }
-                                    </div>
+                                    </MudListItem>
                                 }
-                                else
-                                {
-                                    <p class="text-muted">No leaders selected</p>
-                                }
-                            </div>
-                        </div>
+                            </MudList>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">No leaders selected</MudText>
+                    }
+                </MudItem>
+            </MudGrid>
 
-                        <div class="mt-3">
-                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-primary" @onclick="NextStep" disabled="@(!selectedLeaders.Any())">
-                                Next: Appointment Details
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (currentStep == 3)
-            {
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Step 3: Appointment Details</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Appointment Type *</label>
-                                    <select class="form-control" @bind="selectedAppointmentTypeId">
-                                        <option value="">Select appointment type</option>
-                                        @foreach (var type in appointmentTypes)
-                                        {
-                                            <option value="@type.Id">@type.Name (@type.Duration minutes)</option>
-                                        }
-                                    </select>
-                                </div>
+            <div class="mt-4 d-flex gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="PreviousStep">Previous</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="NextStep" Disabled="@(!selectedLeaders.Any())">
+                    Next: Appointment Details
+                </MudButton>
+            </div>
+        </MudCardContent>
+    </MudCard>
+}
+else if (currentStep == 3)
+{
+    <MudCard Elevation="2">
+        <MudCardHeader>
+            <CardHeaderContent><MudText Typo="Typo.h6">Step 3: Appointment Details</MudText></CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int?" @bind-Value="selectedAppointmentTypeId" Label="Appointment Type" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+                        @foreach (var type in appointmentTypes)
+                        {
+                            <MudSelectItem T="int?" Value="@type.Id">@type.Name (@type.Duration minutes)</MudSelectItem>
+                        }
+                    </MudSelect>
 
-                                @if (selectedAppointmentType != null)
-                                {
-                                    <div class="alert alert-info">
-                                        <strong>Duration:</strong> @selectedAppointmentType.Duration minutes<br>
-                                        @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0)
-                                        {
-                                            <text><strong>Buffer Before:</strong> @selectedAppointmentType.BufferTimeBeforeMinutes minutes<br /></text>
-                                        }
-                                        @if (selectedAppointmentType.BufferTimeAfterMinutes > 0)
-                                        {
-                                            <text><strong>Buffer After:</strong> @selectedAppointmentType.BufferTimeAfterMinutes minutes<br /></text>
-                                        }
-                                        <strong>Message Template (Adults):</strong><br>
-                                        <small>@selectedAppointmentType.MessageTemplate</small>
-                                        <br><br>
-                                        <strong>Message Template (Minors/Parents):</strong><br>
-                                        <small>@selectedAppointmentType.MinorMessageTemplate</small>
-                                    </div>
-                                }
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Appointment Date</label>
-                                    <input type="date" class="form-control" @bind="appointmentDate" @bind:after="OnDateChanged" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
-                                    <small class="form-text text-muted">Select the date for the appointment</small>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label">Time Range</label>
-
-                                    @if (workingHours?.MorningSession != null)
-                                    {
-                                        <div class="alert alert-light border mb-2">
-                                            <small class="text-muted">
-                                                <i class="bi bi-clock"></i>
-                                                <strong>Working Hours:</strong>
-                                                @workingHours.MorningSession.Start.ToString("HH:mm") -
-                                                @workingHours.MorningSession.End.ToString("HH:mm")
-                                                @if (workingHours.BreakTimes?.Count > 0)
-                                                {
-                                                    <br><strong>Break Times:</strong>
-                                                    @foreach (var breakTime in workingHours.BreakTimes)
-                                                    {
-                                                        <span class="badge bg-secondary ms-1">
-                                                            @breakTime.Start.ToString("HH:mm") - @breakTime.End.ToString("HH:mm")
-                                                        </span>
-                                                    }
-                                                }
-                                            </small>
-                                        </div>
-                                    }
-
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <input type="time" class="form-control @(GetTimeInputClass())"
-                                                   @bind="startTime" @bind:after="OnTimeRangeChanged" />
-                                            <small class="form-text text-muted">Start Time</small>
-                                        </div>
-                                        <div class="col-6">
-                                            <input type="time" class="form-control @(GetTimeInputClass())"
-                                                   @bind="endTime" @bind:after="OnTimeRangeChanged" />
-                                            <small class="form-text text-muted">End Time</small>
-                                        </div>
-                                    </div>
-
-                                    @if (currentValidationResult != null && (!currentValidationResult.IsValid || currentValidationResult.Warnings.Any()))
-                                    {
-                                        <div class="mt-2">
-                                            @foreach (var error in currentValidationResult.Errors)
-                                            {
-                                                <div class="alert alert-danger py-1 mb-1">
-                                                    <small><i class="bi bi-exclamation-triangle"></i> @error</small>
-                                                </div>
-                                            }
-                                            @foreach (var warning in currentValidationResult.Warnings)
-                                            {
-                                                <div class="alert alert-warning py-1 mb-1">
-                                                    <small><i class="bi bi-exclamation-circle"></i> @warning</small>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-
-                                    @if (showAlternatives && alternativeTimeSlots.Any())
-                                    {
-                                        <div class="mt-3">
-                                            <h6 class="text-info">
-                                                <i class="bi bi-lightbulb"></i> Alternative Available Times:
-                                            </h6>
-                                            <div class="row">
-                                                @foreach (var altSlot in alternativeTimeSlots.Take(6))
-                                                {
-                                                    <div class="col-md-4 mb-2">
-                                                        <button type="button" class="btn btn-outline-info btn-sm w-100"
-                                                                @onclick="() => SelectAlternativeTimeSlot(altSlot)">
-                                                            @altSlot.Start.ToString("HH:mm") - @altSlot.End.ToString("HH:mm")
-                                                        </button>
-                                                    </div>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-3">
-                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn btn-primary" @onclick="NextStep"
-                                    disabled="@(selectedAppointmentType == null || appointmentDate == default || startTime == default || endTime == default || !IsStep3Valid())">
-                                @if (currentValidationResult != null && !currentValidationResult.IsValid)
-                                {
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    <span>Fix Validation Issues</span>
-                                }
-                                else
-                                {
-                                    <span>Next: Review & Send</span>
-                                }
-                            </button>
-                            @if (currentValidationResult != null && currentValidationResult.Warnings.Any() && currentValidationResult.IsValid)
+                    @if (selectedAppointmentType != null)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mb-2">
+                            <b>Duration:</b> @selectedAppointmentType.Duration minutes<br />
+                            @if (selectedAppointmentType.BufferTimeBeforeMinutes > 0)
                             {
-                                <div class="mt-2">
-                                    <small class="text-warning">
-                                        <i class="bi bi-exclamation-circle"></i>
-                                        There are warnings, but you can proceed.
-                                    </small>
+                                <text><b>Buffer Before:</b> @selectedAppointmentType.BufferTimeBeforeMinutes minutes<br /></text>
+                            }
+                            @if (selectedAppointmentType.BufferTimeAfterMinutes > 0)
+                            {
+                                <text><b>Buffer After:</b> @selectedAppointmentType.BufferTimeAfterMinutes minutes<br /></text>
+                            }
+                            <b>Message Template (Adults):</b><br />
+                            <small>@selectedAppointmentType.MessageTemplate</small><br /><br />
+                            <b>Message Template (Minors/Parents):</b><br />
+                            <small>@selectedAppointmentType.MinorMessageTemplate</small>
+                        </MudAlert>
+                    }
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Date="AppointmentDateValue" DateChanged="OnAppointmentDateChanged" Label="Appointment Date"
+                                   MinDate="DateTime.Today" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+                    <MudText Typo="Typo.subtitle2" GutterBottom="true">Time Range</MudText>
+
+                    @if (workingHours?.MorningSession != null)
+                    {
+                        <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined" Dense="true" Class="mb-2">
+                            <MudText Typo="Typo.caption">
+                                <b>Working Hours:</b>
+                                @workingHours.MorningSession.Start.ToString("HH:mm") - @workingHours.MorningSession.End.ToString("HH:mm")
+                            </MudText>
+                            @if (workingHours.BreakTimes?.Count > 0)
+                            {
+                                <div class="mt-1">
+                                    <MudText Typo="Typo.caption"><b>Break Times:</b></MudText>
+                                    @foreach (var breakTime in workingHours.BreakTimes)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Class="ml-1">
+                                            @breakTime.Start.ToString("HH:mm") - @breakTime.End.ToString("HH:mm")
+                                        </MudChip>
+                                    }
                                 </div>
                             }
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (currentStep == 4)
-            {
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Step 4: Review & Send Notifications</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5>Appointment Summary</h5>
-                                <table class="table">
-                                    <tr>
-                                        <td><strong>Leaders:</strong></td>
-                                        <td>@string.Join(", ", selectedLeaders.Select(l => $"{l.Name} ({l.Title})"))</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Type:</strong></td>
-                                        <td>@selectedAppointmentType?.Name</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Starting Time:</strong></td>
-                                        <td>@appointmentDate.ToString("dddd, MMMM dd, yyyy") at @startTime.ToString("h:mm tt")</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Time Range:</strong></td>
-                                        <td>@startTime.ToString("h:mm tt") - @endTime.ToString("h:mm tt")</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Duration per Appointment:</strong></td>
-                                        <td>@selectedAppointmentType?.Duration minutes</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Contacts to Schedule:</strong></td>
-                                        <td>@selectedContacts.Count contact(s)</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
-                                <h5>SMS Messages Preview</h5>
+                        </MudAlert>
+                    }
 
-                                @if (usedFallbackPreview && previewMessages.Any())
-                                {
-                                    <div class="alert alert-warning">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                        <strong>Scheduling Conflicts Detected</strong><br>
-                                        No appointments could be scheduled for the requested time range. The messages below are samples showing what would be sent if scheduling was successful.
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6">
+                            <MudTimePicker Time="StartTimeSpan" TimeChanged="OnStartTimeChanged" Label="Start Time"
+                                           AmPm="true" Error="@HasTimeError" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudTimePicker Time="EndTimeSpan" TimeChanged="OnEndTimeChanged" Label="End Time"
+                                           AmPm="true" Error="@HasTimeError" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
 
-                                        @if (schedulingConflictReasons.Any())
-                                        {
-                                            <div class="mt-2">
-                                                <strong>Issues found:</strong>
-                                                <ul class="mb-2">
-                                                    @foreach (var reason in schedulingConflictReasons.Take(5))
-                                                    {
-                                                        <li>@reason</li>
-                                                    }
-                                                </ul>
-                                            </div>
-                                        }
-
-                                        @if (suggestedAlternatives.Any())
-                                        {
-                                            <div class="mt-2">
-                                                <strong>Alternative time slots available today:</strong>
-                                                <div class="row mt-1">
-                                                    @foreach (var alternative in suggestedAlternatives.Take(4))
-                                                    {
-                                                        <div class="col-md-6 mb-1">
-                                                            <button type="button" class="btn btn-sm btn-outline-success w-100"
-                                                                    @onclick="() => SelectSuggestedTimeRange(alternative)">
-                                                                @alternative.Start.ToString("HH:mm") - @alternative.End.ToString("HH:mm")
-                                                            </button>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            </div>
-                                        }
-
-                                        <strong>Other options:</strong>
-                                        <ul class="mb-0 mt-1">
-                                            <li>Adjusting the time range</li>
-                                            <li>Selecting a different date</li>
-                                            <li>Adding more leaders</li>
-                                            <li>Reducing the number of contacts</li>
-                                        </ul>
-                                    </div>
-                                }
-
-                                @if (previewMessages.Any())
-                                {
-                                    @foreach (var message in previewMessages)
-                                    {
-                                        <div class="card mb-2 @(message.IsMinorNotification ? "border-info" : (usedFallbackPreview ? "border-warning" : "border-primary"))">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <h6>@message.ContactName</h6>
-                                                        @if (message.IsMinorNotification)
-                                                        {
-                                                            <span class="badge bg-info">Parent Notification</span>
-                                                        }
-                                                        @if (usedFallbackPreview)
-                                                        {
-                                                            <span class="badge bg-warning">Sample Message</span>
-                                                        }
-                                                    </div>
-                                                    <small class="text-muted">@message.PhoneNumber</small>
-                                                </div>
-                                                <p class="mt-2">@message.Message</p>
-                                            </div>
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <p class="text-muted">Message preview will appear here</p>
-                                }
-
-                                @if (selectedContacts.Any(c => c.IsMinor))
-                                {
-                                    <div class="alert alert-info">
-                                        <strong>Note:</strong> A single SMS message will be sent to both parents of minors (if both have phone numbers).
-                                    </div>
-                                }
-                            </div>
-                        </div>
-
-                        <div class="mt-3">
-                            <button class="btn btn-secondary me-2" @onclick="PreviousStep">Previous</button>
-                            <button class="btn @(usedFallbackPreview ? "btn-warning" : "btn-success")"
-                                    @onclick="CreateAppointment"
-                                    disabled="@isCreatingAppointment">
-                                @if (isCreatingAppointment)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                }
-                                @if (usedFallbackPreview)
-                                {
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    <span>Attempt to Create Appointments</span>
-                                }
-                                else
-                                {
-                                    <span>Create Appointment & Send Messages</span>
-                                }
-                            </button>
-                            @if (usedFallbackPreview)
+                    @if (currentValidationResult != null && (!currentValidationResult.IsValid || currentValidationResult.Warnings.Any()))
+                    {
+                        <div class="mt-2">
+                            @foreach (var error in currentValidationResult.Errors)
                             {
-                                <div class="mt-2">
-                                    <small class="text-warning">
-                                        <i class="bi bi-info-circle"></i>
-                                        Warning: Scheduling conflicts detected. The system will attempt to create appointments but some contacts may not be scheduled.
-                                    </small>
-                                </div>
+                                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-1">@error</MudAlert>
+                            }
+                            @foreach (var warning in currentValidationResult.Warnings)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-1">@warning</MudAlert>
                             }
                         </div>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-</div>
+                    }
 
-<style>
-    .step { position: relative; }
-    .step-number {
-        display: inline-block;
-        width: 30px;
-        height: 30px;
-        line-height: 30px;
-        border-radius: 50%;
-        background-color: #e9ecef;
-        color: #6c757d;
-        font-weight: bold;
-    }
-    .step.active .step-number { background-color: #0d6efd; color: white; }
-    .step.active { color: #0d6efd; font-weight: bold; }
-    .is-warning { border-color: #ffc107; box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25); }
-</style>
+                    @if (showAlternatives && alternativeTimeSlots.Any())
+                    {
+                        <div class="mt-3">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Info" GutterBottom="true">
+                                <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" /> Alternative Available Times:
+                            </MudText>
+                            <MudGrid Spacing="1">
+                                @foreach (var altSlot in alternativeTimeSlots.Take(6))
+                                {
+                                    <MudItem xs="6" sm="4">
+                                        <MudButton FullWidth="true" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                                                   OnClick="() => SelectAlternativeTimeSlot(altSlot)">
+                                            @altSlot.Start.ToString("HH:mm") - @altSlot.End.ToString("HH:mm")
+                                        </MudButton>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        </div>
+                    }
+                </MudItem>
+            </MudGrid>
+
+            <div class="mt-4 d-flex gap-2 align-center flex-wrap">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="PreviousStep">Previous</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="NextStep"
+                           Disabled="@(selectedAppointmentType == null || appointmentDate == default || startTime == default || endTime == default || !IsStep3Valid())">
+                    @if (currentValidationResult != null && !currentValidationResult.IsValid)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
+                        <span>Fix Validation Issues</span>
+                    }
+                    else
+                    {
+                        <span>Next: Review &amp; Send</span>
+                    }
+                </MudButton>
+            </div>
+            @if (currentValidationResult != null && currentValidationResult.Warnings.Any() && currentValidationResult.IsValid)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-2 d-block">There are warnings, but you can proceed.</MudText>
+            }
+        </MudCardContent>
+    </MudCard>
+}
+else if (currentStep == 4)
+{
+    <MudCard Elevation="2">
+        <MudCardHeader>
+            <CardHeaderContent><MudText Typo="Typo.h6">Step 4: Review &amp; Send Notifications</MudText></CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Appointment Summary</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            <tr><td><b>Leaders:</b></td><td>@string.Join(", ", selectedLeaders.Select(l => $"{l.Name} ({l.Title})"))</td></tr>
+                            <tr><td><b>Type:</b></td><td>@selectedAppointmentType?.Name</td></tr>
+                            <tr><td><b>Starting Time:</b></td><td>@appointmentDate.ToString("dddd, MMMM dd, yyyy") at @startTime.ToString("h:mm tt")</td></tr>
+                            <tr><td><b>Time Range:</b></td><td>@startTime.ToString("h:mm tt") - @endTime.ToString("h:mm tt")</td></tr>
+                            <tr><td><b>Duration per Appointment:</b></td><td>@selectedAppointmentType?.Duration minutes</td></tr>
+                            <tr><td><b>Contacts to Schedule:</b></td><td>@selectedContacts.Count contact(s)</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">SMS Messages Preview</MudText>
+
+                    @if (usedFallbackPreview && previewMessages.Any())
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="mb-2">
+                            <b>Scheduling Conflicts Detected</b><br />
+                            No appointments could be scheduled for the requested time range. The messages below are samples showing what would be sent if scheduling was successful.
+
+                            @if (schedulingConflictReasons.Any())
+                            {
+                                <div class="mt-2">
+                                    <b>Issues found:</b>
+                                    <ul class="mb-2">
+                                        @foreach (var reason in schedulingConflictReasons.Take(5))
+                                        {
+                                            <li>@reason</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+
+                            @if (suggestedAlternatives.Any())
+                            {
+                                <div class="mt-2">
+                                    <b>Alternative time slots available today:</b>
+                                    <MudGrid Spacing="1" Class="mt-1">
+                                        @foreach (var alternative in suggestedAlternatives.Take(4))
+                                        {
+                                            <MudItem xs="6">
+                                                <MudButton FullWidth="true" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                                           OnClick="() => SelectSuggestedTimeRange(alternative)">
+                                                    @alternative.Start.ToString("HH:mm") - @alternative.End.ToString("HH:mm")
+                                                </MudButton>
+                                            </MudItem>
+                                        }
+                                    </MudGrid>
+                                </div>
+                            }
+
+                            <b>Other options:</b>
+                            <ul class="mb-0 mt-1">
+                                <li>Adjusting the time range</li>
+                                <li>Selecting a different date</li>
+                                <li>Adding more leaders</li>
+                                <li>Reducing the number of contacts</li>
+                            </ul>
+                        </MudAlert>
+                    }
+
+                    @if (previewMessages.Any())
+                    {
+                        @foreach (var message in previewMessages)
+                        {
+                            <MudCard Outlined="true" Class="mb-2">
+                                <MudCardContent>
+                                    <div class="d-flex justify-space-between align-start">
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">@message.ContactName</MudText>
+                                            @if (message.IsMinorNotification)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Info">Parent Notification</MudChip>
+                                            }
+                                            @if (usedFallbackPreview)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning">Sample Message</MudChip>
+                                            }
+                                        </div>
+                                        <MudText Typo="Typo.caption">@message.PhoneNumber</MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2" Class="mt-2">@message.Message</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default">Message preview will appear here</MudText>
+                    }
+
+                    @if (selectedContacts.Any(c => c.IsMinor))
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            <b>Note:</b> A single SMS message will be sent to both parents of minors (if both have phone numbers).
+                        </MudAlert>
+                    }
+                </MudItem>
+            </MudGrid>
+
+            <div class="mt-4 d-flex gap-2 align-center flex-wrap">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="PreviousStep">Previous</MudButton>
+                <MudButton Variant="Variant.Filled" Color="@(usedFallbackPreview ? Color.Warning : Color.Success)"
+                           OnClick="CreateAppointment" Disabled="@isCreatingAppointment">
+                    @if (isCreatingAppointment)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    @if (usedFallbackPreview)
+                    {
+                        <span>Attempt to Create Appointments</span>
+                    }
+                    else
+                    {
+                        <span>Create Appointment &amp; Send Messages</span>
+                    }
+                </MudButton>
+            </div>
+            @if (usedFallbackPreview)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-2 d-block">
+                    Warning: Scheduling conflicts detected. The system will attempt to create appointments but some contacts may not be scheduled.
+                </MudText>
+            }
+        </MudCardContent>
+    </MudCard>
+}
 
 @code {
     private int currentStep = 1;
@@ -585,6 +524,31 @@
     private ValidationResult currentValidationResult = new();
     private List<TimeRange> alternativeTimeSlots = new();
     private bool showAlternatives = false;
+
+    // MudDatePicker.Date is DateTime? and MudTimePicker.Time is TimeSpan?; adapt to the
+    // existing DateTime / TimeOnly fields so the rest of the scheduling code is unchanged.
+    private DateTime? AppointmentDateValue => appointmentDate;
+    private TimeSpan? StartTimeSpan => startTime.ToTimeSpan();
+    private TimeSpan? EndTimeSpan => endTime.ToTimeSpan();
+    private bool HasTimeError => currentValidationResult is { IsValid: false } && currentValidationResult.Errors.Any();
+
+    private async Task OnAppointmentDateChanged(DateTime? value)
+    {
+        appointmentDate = value?.Date ?? appointmentDate;
+        await OnDateChanged();
+    }
+
+    private async Task OnStartTimeChanged(TimeSpan? value)
+    {
+        startTime = value.HasValue ? TimeOnly.FromTimeSpan(value.Value) : default;
+        await OnTimeRangeChanged();
+    }
+
+    private async Task OnEndTimeChanged(TimeSpan? value)
+    {
+        endTime = value.HasValue ? TimeOnly.FromTimeSpan(value.Value) : default;
+        await OnTimeRangeChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -714,15 +678,6 @@
         var today = DateTime.Today;
         var daysUntilSunday = ((int)DayOfWeek.Sunday - (int)today.DayOfWeek + 7) % 7;
         return daysUntilSunday == 0 ? today.AddDays(7) : today.AddDays(daysUntilSunday);
-    }
-
-    private string GetTimeInputClass()
-    {
-        if (currentValidationResult == null || currentValidationResult.IsValid)
-            return "";
-
-        return currentValidationResult.Errors.Any() ? "is-invalid" :
-               currentValidationResult.Warnings.Any() ? "is-warning" : "";
     }
 
     private Task OnTimeRangeChanged() => ValidateCurrentTimeRange();

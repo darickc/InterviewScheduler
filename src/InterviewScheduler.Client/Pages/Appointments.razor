@@ -12,182 +12,148 @@
 
 <PageTitle>Appointments</PageTitle>
 
-<h1>Appointment Management</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">Appointment Management</MudText>
 
-<div class="row mb-3">
-    <div class="col-md-6">
-        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/appointments/new")'>
-            <i class="bi bi-plus-circle"></i> Schedule New Appointment
-        </button>
-    </div>
-    <div class="col-md-6 text-end">
-        <div class="btn-group">
-            <button class="btn btn-outline-secondary @(viewFilter == "all" ? "active" : "")" @onclick='() => SetFilter("all")'>
-                All (@appointments.Count)
-            </button>
-            <button class="btn btn-outline-warning @(viewFilter == "pending" ? "active" : "")" @onclick='() => SetFilter("pending")'>
-                Pending (@appointments.Count(a => a.Status == AppointmentStatus.Pending))
-            </button>
-            <button class="btn btn-outline-success @(viewFilter == "confirmed" ? "active" : "")" @onclick='() => SetFilter("confirmed")'>
-                Confirmed (@appointments.Count(a => a.Status == AppointmentStatus.Confirmed))
-            </button>
-            <button class="btn btn-outline-danger @(viewFilter == "cancelled" ? "active" : "")" @onclick='() => SetFilter("cancelled")'>
-                Cancelled (@appointments.Count(a => a.Status == AppointmentStatus.Cancelled))
-            </button>
-        </div>
-    </div>
+<div class="d-flex justify-space-between align-center flex-wrap gap-2 mb-4">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddCircle"
+               OnClick='() => Navigation.NavigateTo("/appointments/new")'>
+        Schedule New Appointment
+    </MudButton>
+
+    <MudToggleGroup T="string" @bind-Value="viewFilter" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true">
+        <MudToggleItem Value="@("all")" Text="@($"All ({appointments.Count})")" />
+        <MudToggleItem Value="@("pending")" Text="@($"Pending ({appointments.Count(a => a.Status == AppointmentStatus.Pending)})")" />
+        <MudToggleItem Value="@("confirmed")" Text="@($"Confirmed ({appointments.Count(a => a.Status == AppointmentStatus.Confirmed)})")" />
+        <MudToggleItem Value="@("cancelled")" Text="@($"Cancelled ({appointments.Count(a => a.Status == AppointmentStatus.Cancelled)})")" />
+    </MudToggleGroup>
 </div>
 
-<div class="row mb-3">
-    <div class="col-md-4">
-        <input type="text" class="form-control" placeholder="Search appointments..."
-               @bind="searchTerm" @bind:event="oninput" />
-    </div>
-    <div class="col-md-3">
-        <select class="form-control" @bind="leaderFilter">
-            <option value="">All Leaders</option>
+<MudGrid Class="mb-2" Spacing="2">
+    <MudItem xs="12" md="4">
+        <MudTextField @bind-Value="searchTerm" Immediate="true" Placeholder="Search appointments..."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudSelect T="string" @bind-Value="leaderFilter" Label="Leader" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            <MudSelectItem T="string" Value="@("")">All Leaders</MudSelectItem>
             @foreach (var leader in leaders)
             {
-                <option value="@leader.Id">@leader.Name (@leader.Title)</option>
+                <MudSelectItem T="string" Value="@leader.Id.ToString()">@leader.Name (@leader.Title)</MudSelectItem>
             }
-        </select>
-    </div>
-    <div class="col-md-3">
-        <select class="form-control" @bind="dateFilter">
-            <option value="">All Dates</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="past">Past</option>
-        </select>
-    </div>
-    <div class="col-md-2">
-        <button class="btn btn-outline-secondary" @onclick="ClearFilters">Clear Filters</button>
-    </div>
-</div>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudSelect T="string" @bind-Value="dateFilter" Label="Date" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            <MudSelectItem T="string" Value="@("")">All Dates</MudSelectItem>
+            <MudSelectItem T="string" Value="@("today")">Today</MudSelectItem>
+            <MudSelectItem T="string" Value="@("week")">This Week</MudSelectItem>
+            <MudSelectItem T="string" Value="@("month")">This Month</MudSelectItem>
+            <MudSelectItem T="string" Value="@("upcoming")">Upcoming</MudSelectItem>
+            <MudSelectItem T="string" Value="@("past")">Past</MudSelectItem>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" md="2" Class="d-flex align-center">
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ClearFilters">
+            Clear Filters
+        </MudButton>
+    </MudItem>
+</MudGrid>
 
 @if (filteredAppointments.Any())
 {
-    <div class="row">
-        @foreach (var dayGroup in filteredAppointments.GroupBy(a => a.ScheduledTime.Date).OrderBy(g => g.Key))
-        {
-            <div class="col-md-12 mb-4">
-                <h4>@dayGroup.Key.ToString("dddd, MMMM dd, yyyy")</h4>
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Contact</th>
-                                <th>Leader</th>
-                                <th>Type</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var appointment in dayGroup.OrderBy(a => a.ScheduledTime))
+    @foreach (var dayGroup in filteredAppointments.GroupBy(a => a.ScheduledTime.Date).OrderBy(g => g.Key))
+    {
+        <MudCard Elevation="2" Class="mb-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">@dayGroup.Key.ToString("dddd, MMMM dd, yyyy")</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent Class="pa-0">
+                <MudTable Items="dayGroup.OrderBy(a => a.ScheduledTime)" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Time</MudTh>
+                        <MudTh>Contact</MudTh>
+                        <MudTh>Leader</MudTh>
+                        <MudTh>Type</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh Style="text-align:right">Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Time">
+                            <MudText Typo="Typo.body2"><b>@context.ScheduledTime.ToString("h:mm tt")</b></MudText>
+                            <MudText Typo="Typo.caption">@context.AppointmentType?.Duration min</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Contact">
+                            <MudText Typo="Typo.body2"><b>@context.Contact?.FullName</b></MudText>
+                            <MudText Typo="Typo.caption">
+                                @if (!string.IsNullOrEmpty(context.Contact?.PhoneNumber))
+                                {
+                                    @context.Contact.PhoneNumber
+                                }
+                                else if (context.Contact?.IsMinor == true && context.Contact?.HeadOfHouse != null)
+                                {
+                                    @GetParentPhoneDisplay(context.Contact)
+                                }
+                                else if (context.Contact?.IsMinor == false && context.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(context.Contact.HeadOfHouse.PhoneNumber))
+                                {
+                                    <span>via @context.Contact.HeadOfHouse.FirstName: @context.Contact.HeadOfHouse.PhoneNumber</span>
+                                }
+                                else
+                                {
+                                    <span>No phone</span>
+                                }
+                            </MudText>
+                            @if (context.Contact?.IsMinor == true)
                             {
-                                <tr class="@GetRowClass(appointment)">
-                                    <td>
-                                        <strong>@appointment.ScheduledTime.ToString("h:mm tt")</strong>
-                                        <br><small class="text-muted">@appointment.AppointmentType?.Duration min</small>
-                                    </td>
-                                    <td>
-                                        <strong>@appointment.Contact?.FullName</strong>
-                                        <br><small class="text-muted">
-                                            @if (!string.IsNullOrEmpty(appointment.Contact?.PhoneNumber))
-                                            {
-                                                @appointment.Contact.PhoneNumber
-                                            }
-                                            else if (appointment.Contact?.IsMinor == true && appointment.Contact?.HeadOfHouse != null)
-                                            {
-                                                @GetParentPhoneDisplay(appointment.Contact)
-                                            }
-                                            else if (appointment.Contact?.IsMinor == false && appointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(appointment.Contact.HeadOfHouse.PhoneNumber))
-                                            {
-                                                <span class="text-info">via @appointment.Contact.HeadOfHouse.FirstName: @appointment.Contact.HeadOfHouse.PhoneNumber</span>
-                                            }
-                                            else
-                                            {
-                                                <span>No phone</span>
-                                            }
-                                        </small>
-                                        @if (appointment.Contact?.IsMinor == true)
-                                        {
-                                            <br><span class="badge bg-info">Minor</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        <strong>@appointment.Leader?.Name</strong>
-                                        <br><small class="text-muted">@appointment.Leader?.Title</small>
-                                    </td>
-                                    <td>@appointment.AppointmentType?.Name</td>
-                                    <td>
-                                        @if (appointment.Status == AppointmentStatus.Pending)
-                                        {
-                                            <span class="badge bg-warning">Pending</span>
-                                        }
-                                        else if (appointment.Status == AppointmentStatus.Confirmed)
-                                        {
-                                            <span class="badge bg-success">Confirmed</span>
-                                        }
-                                        else if (appointment.Status == AppointmentStatus.Cancelled)
-                                        {
-                                            <span class="badge bg-danger">Cancelled</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        <div class="btn-group-vertical btn-group-sm">
-                                            @if (appointment.Status == AppointmentStatus.Pending)
-                                            {
-                                                <button class="btn btn-outline-success" @onclick="() => ConfirmAppointment(appointment)">
-                                                    <i class="bi bi-check"></i> Confirm
-                                                </button>
-                                            }
-
-                                            @if (appointment.Status != AppointmentStatus.Cancelled)
-                                            {
-                                                <button class="btn btn-outline-danger" @onclick="() => CancelAppointment(appointment)">
-                                                    <i class="bi bi-x"></i> Cancel
-                                                </button>
-                                            }
-
-                                            <button class="btn btn-outline-primary" @onclick="() => ViewDetails(appointment)">
-                                                <i class="bi bi-eye"></i> Details
-                                            </button>
-
-                                            @if (HasValidPhoneForSms(appointment))
-                                            {
-                                                <button class="btn btn-outline-info" @onclick="() => SendSMSReminder(appointment)">
-                                                    <i class="bi bi-phone"></i> SMS @GetSmsButtonLabel(appointment.Contact)
-                                                </button>
-                                            }
-
-                                            @if (appointment.Status == AppointmentStatus.Cancelled)
-                                            {
-                                                <button class="btn btn-outline-secondary" @onclick="() => DeleteAppointment(appointment)">
-                                                    <i class="bi bi-trash"></i> Delete
-                                                </button>
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="mt-1">Minor</MudChip>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
-    </div>
+                        </MudTd>
+                        <MudTd DataLabel="Leader">
+                            <MudText Typo="Typo.body2"><b>@context.Leader?.Name</b></MudText>
+                            <MudText Typo="Typo.caption">@context.Leader?.Title</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Type">@context.AppointmentType?.Name</MudTd>
+                        <MudTd DataLabel="Status">@StatusChip(context.Status)</MudTd>
+                        <MudTd DataLabel="Actions" Style="text-align:right">
+                            <div class="d-flex flex-column gap-1 align-end">
+                                @if (context.Status == AppointmentStatus.Pending)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                               StartIcon="@Icons.Material.Filled.Check" OnClick="() => ConfirmAppointment(context)">Confirm</MudButton>
+                                }
+                                @if (context.Status != AppointmentStatus.Cancelled)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                               StartIcon="@Icons.Material.Filled.Close" OnClick="() => CancelAppointment(context)">Cancel</MudButton>
+                                }
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Visibility" OnClick="() => ViewDetails(context)">Details</MudButton>
+                                @if (HasValidPhoneForSms(context))
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                                               StartIcon="@Icons.Material.Filled.Smartphone" OnClick="() => SendSMSReminder(context)">SMS @GetSmsButtonLabel(context.Contact)</MudButton>
+                                }
+                                @if (context.Status == AppointmentStatus.Cancelled)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
+                                               StartIcon="@Icons.Material.Filled.Delete" OnClick="() => DeleteAppointment(context)">Delete</MudButton>
+                                }
+                            </div>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    }
 }
 else
 {
-    <div class="text-center py-5">
-        <i class="bi bi-calendar-x" style="font-size: 3rem; color: #6c757d;"></i>
-        <h4 class="mt-3">No Appointments Found</h4>
-        <p class="text-muted">
+    <MudPaper Elevation="2" Class="pa-8 d-flex flex-column align-center justify-center" Style="min-height: 240px;">
+        <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" Color="Color.Default" />
+        <MudText Typo="Typo.h6" Class="mt-3">No Appointments Found</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-3">
             @if (viewFilter == "all")
             {
                 <span>No appointments have been scheduled yet.</span>
@@ -196,236 +162,191 @@ else
             {
                 <span>No @viewFilter appointments found. Try adjusting your filters.</span>
             }
-        </p>
-        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/appointments/new")'>
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick='() => Navigation.NavigateTo("/appointments/new")'>
             Schedule Your First Appointment
-        </button>
-    </div>
+        </MudButton>
+    </MudPaper>
 }
 
-<!-- Details Modal -->
-@if (selectedAppointment != null)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Appointment Details</h5>
-                    <button type="button" class="btn-close" @onclick="CloseDetails"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Contact Information</h6>
-                            <table class="table table-sm">
-                                <tr>
-                                    <td><strong>Name:</strong></td>
-                                    <td>@selectedAppointment.Contact?.FullName</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Phone:</strong></td>
-                                    <td>
-                                        @if (!string.IsNullOrEmpty(selectedAppointment.Contact?.PhoneNumber))
+<MudDialog @bind-Visible="showDetails" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Appointment Details</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (selectedAppointment != null)
+        {
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Contact Information</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            <tr>
+                                <td><b>Name:</b></td>
+                                <td>@selectedAppointment.Contact?.FullName</td>
+                            </tr>
+                            <tr>
+                                <td><b>Phone:</b></td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(selectedAppointment.Contact?.PhoneNumber))
+                                    {
+                                        <MudLink Color="Color.Info" OnClick="() => CopyPhoneToClipboard(selectedAppointment.Contact.PhoneNumber)">
+                                            @selectedAppointment.Contact.PhoneNumber <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" />
+                                        </MudLink>
+                                    }
+                                    else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Default">No direct phone</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Info">SMS will be sent to:</MudText>
+                                        @if (!string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
                                         {
-                                            <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.PhoneNumber)" title="Click to copy">
-                                                @selectedAppointment.Contact.PhoneNumber <i class="bi bi-clipboard"></i>
-                                            </span>
-                                        }
-                                        else if (selectedAppointment.Contact?.IsMinor == true && selectedAppointment.Contact?.HeadOfHouse != null)
-                                        {
-                                            <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to:
-                                                @if (!string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
-                                                {
-                                                    <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)" title="Click to copy">
-                                                        @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
-                                                    </span>
-                                                    @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null &&
-                                                        !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
-                                                        selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber != selectedAppointment.Contact.HeadOfHouse.PhoneNumber)
-                                                    {
-                                                        <text> | </text>
-                                                        <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber!)" title="Click to copy">
-                                                            @selectedAppointment.Contact.HeadOfHouse.Spouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber <i class="bi bi-clipboard"></i>
-                                                        </span>
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    <text>No parent phone</text>
-                                                }
-                                            </small>
-                                        }
-                                        else if (selectedAppointment.Contact?.IsMinor == false && selectedAppointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
-                                        {
-                                            <span class="text-muted">No direct phone</span>
-                                            <br><small class="text-info">SMS will be sent to head of household:
-                                                <span class="clickable-phone" @onclick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)" title="Click to copy">
-                                                    @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber <i class="bi bi-clipboard"></i>
-                                                </span>
-                                            </small>
+                                            <MudLink Color="Color.Info" OnClick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)">
+                                                @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber
+                                            </MudLink>
+                                            @if (selectedAppointment.Contact.HeadOfHouse.Spouse != null &&
+                                                !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber) &&
+                                                selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber != selectedAppointment.Contact.HeadOfHouse.PhoneNumber)
+                                            {
+                                                <text> | </text>
+                                                <MudLink Color="Color.Info" OnClick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber!)">
+                                                    @selectedAppointment.Contact.HeadOfHouse.Spouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.Spouse.PhoneNumber
+                                                </MudLink>
+                                            }
                                         }
                                         else
                                         {
-                                            <span class="text-muted">No phone number</span>
+                                            <text>No parent phone</text>
                                         }
-                                    </td>
-                                </tr>
+                                    }
+                                    else if (selectedAppointment.Contact?.IsMinor == false && selectedAppointment.Contact?.HeadOfHouse != null && !string.IsNullOrEmpty(selectedAppointment.Contact.HeadOfHouse.PhoneNumber))
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Default">No direct phone</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Info">SMS will be sent to head of household:</MudText>
+                                        <MudLink Color="Color.Info" OnClick="() => CopyPhoneToClipboard(selectedAppointment.Contact.HeadOfHouse.PhoneNumber!)">
+                                            @selectedAppointment.Contact.HeadOfHouse.FirstName: @selectedAppointment.Contact.HeadOfHouse.PhoneNumber
+                                        </MudLink>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Default">No phone number</MudText>
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><b>Age:</b></td>
+                                <td>@selectedAppointment.Contact?.Age @(selectedAppointment.Contact?.IsMinor == true ? "(Minor)" : "")</td>
+                            </tr>
+                            @if (selectedAppointment.Contact?.HeadOfHouse != null)
+                            {
                                 <tr>
-                                    <td><strong>Age:</strong></td>
-                                    <td>@selectedAppointment.Contact?.Age @(selectedAppointment.Contact?.IsMinor == true ? "(Minor)" : "")</td>
+                                    <td><b>Head of House:</b></td>
+                                    <td>@selectedAppointment.Contact.HeadOfHouse.FullName</td>
                                 </tr>
-                                @if (selectedAppointment.Contact?.HeadOfHouse != null)
-                                {
-                                    <tr>
-                                        <td><strong>Head of House:</strong></td>
-                                        <td>@selectedAppointment.Contact.HeadOfHouse.FullName</td>
-                                    </tr>
-                                }
-                            </table>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Appointment Information</MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            <tr><td><b>Leader:</b></td><td>@selectedAppointment.Leader?.Name (@selectedAppointment.Leader?.Title)</td></tr>
+                            <tr><td><b>Type:</b></td><td>@selectedAppointment.AppointmentType?.Name</td></tr>
+                            <tr><td><b>Date &amp; Time:</b></td><td>@selectedAppointment.ScheduledTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</td></tr>
+                            <tr><td><b>Duration:</b></td><td>@selectedAppointment.AppointmentType?.Duration minutes</td></tr>
+                            <tr><td><b>Status:</b></td><td>@StatusChip(selectedAppointment.Status)</td></tr>
+                            <tr><td><b>Created:</b></td><td>@selectedAppointment.CreatedDate.ToString("MMM dd, yyyy 'at' h:mm tt")</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+            </MudGrid>
+
+            @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
+            {
+                <MudText Typo="Typo.subtitle1" GutterBottom="true" Class="mt-4">Message Templates</MudText>
+                <MudAlert Severity="Severity.Info" Class="mb-2">
+                    <div class="d-flex justify-space-between align-start">
+                        <div class="flex-grow-1">
+                            <b>@(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")</b><br />
+                            @GetFormattedMessage(selectedAppointment)
                         </div>
-                        <div class="col-md-6">
-                            <h6>Appointment Information</h6>
-                            <table class="table table-sm">
-                                <tr>
-                                    <td><strong>Leader:</strong></td>
-                                    <td>@selectedAppointment.Leader?.Name (@selectedAppointment.Leader?.Title)</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Type:</strong></td>
-                                    <td>@selectedAppointment.AppointmentType?.Name</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Date & Time:</strong></td>
-                                    <td>@selectedAppointment.ScheduledTime.ToString("dddd, MMMM dd, yyyy 'at' h:mm tt")</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Duration:</strong></td>
-                                    <td>@selectedAppointment.AppointmentType?.Duration minutes</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Status:</strong></td>
-                                    <td>
-                                        @if (selectedAppointment.Status == AppointmentStatus.Pending)
-                                        {
-                                            <span class="badge bg-warning">Pending</span>
-                                        }
-                                        else if (selectedAppointment.Status == AppointmentStatus.Confirmed)
-                                        {
-                                            <span class="badge bg-success">Confirmed</span>
-                                        }
-                                        else if (selectedAppointment.Status == AppointmentStatus.Cancelled)
-                                        {
-                                            <span class="badge bg-danger">Cancelled</span>
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Created:</strong></td>
-                                    <td>@selectedAppointment.CreatedDate.ToString("MMM dd, yyyy 'at' h:mm tt")</td>
-                                </tr>
-                            </table>
-                        </div>
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" Color="Color.Primary"
+                                       OnClick="() => CopyMessageToClipboard(GetFormattedMessage(selectedAppointment))" />
                     </div>
+                </MudAlert>
 
-                    @if (!string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MessageTemplate))
-                    {
-                        <h6 class="mt-3">Message Templates</h6>
-                        <div class="alert alert-info">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <strong>@(selectedAppointment.Contact?.IsMinor == true ? "Minor Template (sent to parent):" : "Adult Template:")</strong><br>
-                                    @GetFormattedMessage(selectedAppointment)
-                                </div>
-                                <button class="btn btn-sm btn-outline-primary ms-2" @onclick="() => CopyMessageToClipboard(GetFormattedMessage(selectedAppointment))">
-                                    <i class="bi bi-clipboard"></i> Copy
-                                </button>
+                @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                {
+                    <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined">
+                        <div class="d-flex justify-space-between align-start">
+                            <div class="flex-grow-1">
+                                <b>Adult Template (for reference):</b><br />
+                                @GetAdultFormattedMessage(selectedAppointment)
                             </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           OnClick="() => CopyMessageToClipboard(GetAdultFormattedMessage(selectedAppointment))" />
                         </div>
-
-                        @if (selectedAppointment.Contact?.IsMinor == true && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
-                        {
-                            <div class="alert alert-secondary">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <strong>Adult Template (for reference):</strong><br>
-                                        @GetAdultFormattedMessage(selectedAppointment)
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => CopyMessageToClipboard(GetAdultFormattedMessage(selectedAppointment))">
-                                        <i class="bi bi-clipboard"></i> Copy
-                                    </button>
-                                </div>
+                    </MudAlert>
+                }
+                else if (selectedAppointment.Contact?.IsMinor == false && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
+                {
+                    <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined">
+                        <div class="d-flex justify-space-between align-start">
+                            <div class="flex-grow-1">
+                                <b>Minor Template (for reference):</b><br />
+                                @GetMinorFormattedMessage(selectedAppointment)
                             </div>
-                        }
-                        else if (selectedAppointment.Contact?.IsMinor == false && !string.IsNullOrEmpty(selectedAppointment.AppointmentType?.MinorMessageTemplate))
-                        {
-                            <div class="alert alert-secondary">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <strong>Minor Template (for reference):</strong><br>
-                                        @GetMinorFormattedMessage(selectedAppointment)
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => CopyMessageToClipboard(GetMinorFormattedMessage(selectedAppointment))">
-                                        <i class="bi bi-clipboard"></i> Copy
-                                    </button>
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Close</button>
-                    @if (selectedAppointment.Status == AppointmentStatus.Pending)
-                    {
-                        <button type="button" class="btn btn-success" @onclick="() => ConfirmAppointment(selectedAppointment)">
-                            Confirm Appointment
-                        </button>
-                    }
-                    @if (selectedAppointment.Status != AppointmentStatus.Cancelled)
-                    {
-                        <button type="button" class="btn btn-danger" @onclick="() => CancelAppointment(selectedAppointment)">
-                            Cancel Appointment
-                        </button>
-                    }
-                    @if (selectedAppointment.Status == AppointmentStatus.Cancelled)
-                    {
-                        <button type="button" class="btn btn-secondary" @onclick="() => DeleteAppointment(selectedAppointment)">
-                            <i class="bi bi-trash"></i> Delete Appointment
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-<style>
-    .clickable-phone {
-        cursor: pointer;
-        color: #0d6efd;
-        text-decoration: underline;
-    }
-
-    .clickable-phone:hover {
-        color: #0a58ca;
-        text-decoration: underline;
-    }
-
-    .clickable-phone i {
-        font-size: 0.875rem;
-        margin-left: 0.25rem;
-    }
-</style>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           OnClick="() => CopyMessageToClipboard(GetMinorFormattedMessage(selectedAppointment))" />
+                        </div>
+                    </MudAlert>
+                }
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDetails">Close</MudButton>
+        @if (selectedAppointment?.Status == AppointmentStatus.Pending)
+        {
+            <MudButton Color="Color.Success" Variant="Variant.Filled" OnClick="() => ConfirmAppointment(selectedAppointment)">Confirm Appointment</MudButton>
+        }
+        @if (selectedAppointment != null && selectedAppointment.Status != AppointmentStatus.Cancelled)
+        {
+            <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="() => CancelAppointment(selectedAppointment)">Cancel Appointment</MudButton>
+        }
+        @if (selectedAppointment?.Status == AppointmentStatus.Cancelled)
+        {
+            <MudButton Color="Color.Secondary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete" OnClick="() => DeleteAppointment(selectedAppointment)">Delete Appointment</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
 
 @code {
     private List<Appointment> appointments = new();
     private List<Leader> leaders = new();
     private Appointment? selectedAppointment;
+    private bool showDetails;
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true };
 
     private string viewFilter = "all";
     private string searchTerm = "";
     private string leaderFilter = "";
     private string dateFilter = "upcoming";
+
+    private RenderFragment StatusChip(AppointmentStatus status) =>@<text>
+        @switch (status)
+        {
+            case AppointmentStatus.Pending:
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning">Pending</MudChip>
+                break;
+            case AppointmentStatus.Confirmed:
+                <MudChip T="string" Size="Size.Small" Color="Color.Success">Confirmed</MudChip>
+                break;
+            case AppointmentStatus.Cancelled:
+                <MudChip T="string" Size="Size.Small" Color="Color.Error">Cancelled</MudChip>
+                break;
+        }
+    </text>;
 
     protected override async Task OnInitializedAsync()
     {
@@ -573,9 +494,17 @@ else
         }
     }
 
-    private void ViewDetails(Appointment appointment) => selectedAppointment = appointment;
+    private void ViewDetails(Appointment appointment)
+    {
+        selectedAppointment = appointment;
+        showDetails = true;
+    }
 
-    private void CloseDetails() => selectedAppointment = null;
+    private void CloseDetails()
+    {
+        selectedAppointment = null;
+        showDetails = false;
+    }
 
     private async Task SendSMSReminder(Appointment appointment)
     {

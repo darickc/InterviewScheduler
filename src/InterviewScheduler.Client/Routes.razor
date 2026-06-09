@@ -1,29 +1,58 @@
 @using InterviewScheduler.Client.Layout
 
+<MudThemeProvider Theme="@_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
             <NotAuthorized>
-                <div class="container mt-5">
-                    <div class="row justify-content-center">
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-body text-center">
-                                    <h3 class="card-title">Authentication Required</h3>
-                                    <p class="card-text">You need to sign in to access this page.</p>
-                                    <a href="/signin-google" class="btn btn-primary">
-                                        Sign in with Google
-                                    </a>
-                                    <p class="mt-3">
-                                        <a href="/" class="btn btn-link">Return to Home</a>
-                                    </p>
-                                </div>
+                <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+                    <MudCard Elevation="4">
+                        <MudCardContent>
+                            <div class="d-flex flex-column align-center text-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Primary" Size="Size.Large" Class="mb-2" />
+                                <MudText Typo="Typo.h5" GutterBottom="true">Authentication Required</MudText>
+                                <MudText Typo="Typo.body1" Class="mb-4">You need to sign in to access this page.</MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           StartIcon="@Icons.Custom.Brands.Google"
+                                           Href="/signin-google">
+                                    Sign in with Google
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/" Class="mt-2">
+                                    Return to Home
+                                </MudButton>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudContainer>
             </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#90caf9",
+            Secondary = "#b0bec5",
+            Success = "#4caf50",
+            Info = "#2196f3",
+            Warning = "#ff9800",
+            Error = "#f44336",
+            AppbarBackground = "#1e1e1e",
+            Background = "#121212",
+            Surface = "#1e1e1e",
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DrawerWidthLeft = "260px",
+            DrawerWidthRight = "300px"
+        }
+    };
+}

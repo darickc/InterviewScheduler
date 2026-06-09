@@ -1,11 +1,15 @@
 <AuthorizeView>
     <Authorized>
-        <div class="d-flex align-items-center">
-            <span class="me-2">@context.User.Identity?.Name</span>
-            <a href="/signout-google" class="btn btn-sm btn-outline-secondary">Sign Out</a>
-        </div>
+        <MudText Typo="Typo.body2" Class="mr-2 d-none d-sm-flex">@context.User.Identity?.Name</MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Logout" Href="/signout-google">
+            Sign Out
+        </MudButton>
     </Authorized>
     <NotAuthorized>
-        <a href="/signin-google" class="btn btn-sm btn-primary">Sign In with Google</a>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Custom.Brands.Google" Href="/signin-google">
+            Sign In with Google
+        </MudButton>
     </NotAuthorized>
 </AuthorizeView>

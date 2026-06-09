@@ -6,146 +6,121 @@
 
 <PageTitle>Appointment Types</PageTitle>
 
-<h1>Appointment Types Management</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">Appointment Types Management</MudText>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h3>Appointment Types</h3>
-            </div>
-            <div class="card-body">
+<MudGrid>
+    <MudItem xs="12" md="8">
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Appointment Types</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
                 @if (appointmentTypes.Any())
                 {
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Duration (minutes)</th>
-                                <th>Message Templates</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var type in appointmentTypes)
-                            {
-                                <tr>
-                                    <td>@type.Name</td>
-                                    <td>@type.Duration</td>
-                                    <td style="max-width: 300px;">
-                                        <div class="mb-1">
-                                            <strong>Adults:</strong><br>
-                                            <small class="text-truncate d-block" title="@type.MessageTemplate">@type.MessageTemplate</small>
-                                        </div>
-                                        <div>
-                                            <strong>Minors:</strong><br>
-                                            <small class="text-truncate d-block" title="@type.MinorMessageTemplate">@type.MinorMessageTemplate</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-primary me-2" @onclick="() => EditAppointmentType(type)">
-                                            Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteAppointmentType(type)">
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    <MudTable Items="appointmentTypes" Dense="true" Hover="true" Striped="true">
+                        <HeaderContent>
+                            <MudTh>Name</MudTh>
+                            <MudTh>Duration (min)</MudTh>
+                            <MudTh>Message Templates</MudTh>
+                            <MudTh Style="text-align:right">Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Duration">@context.Duration</MudTd>
+                            <MudTd DataLabel="Message Templates" Style="max-width: 300px;">
+                                <MudText Typo="Typo.caption"><b>Adults:</b></MudText>
+                                <MudText Typo="Typo.caption" Class="d-block text-truncate" title="@context.MessageTemplate">@context.MessageTemplate</MudText>
+                                <MudText Typo="Typo.caption"><b>Minors:</b></MudText>
+                                <MudText Typo="Typo.caption" Class="d-block text-truncate" title="@context.MinorMessageTemplate">@context.MinorMessageTemplate</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Actions" Style="text-align:right">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small"
+                                               OnClick="() => EditAppointmentType(context)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                               OnClick="() => DeleteAppointmentType(context)" />
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
                 }
                 else
                 {
-                    <p>No appointment types found. Create one to get started.</p>
+                    <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined">No appointment types found. Create one to get started.</MudAlert>
                 }
-            </div>
-        </div>
-    </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h3>@(editingType == null ? "Add New" : "Edit") Appointment Type</h3>
-            </div>
-            <div class="card-body">
+    <MudItem xs="12" md="4">
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">@(editingType == null ? "Add New" : "Edit") Appointment Type</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
                 <EditForm Model="appointmentTypeForm" OnValidSubmit="SaveAppointmentType">
                     <DataAnnotationsValidator />
-                    <ValidationSummary />
 
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Name *</label>
-                        <InputText id="name" class="form-control" @bind-Value="appointmentTypeForm.Name" />
-                        <ValidationMessage For="() => appointmentTypeForm.Name" />
-                    </div>
+                    <MudTextField @bind-Value="appointmentTypeForm.Name" For="() => appointmentTypeForm.Name"
+                                  Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
 
-                    <div class="mb-3">
-                        <label for="duration" class="form-label">Duration (minutes) *</label>
-                        <InputNumber id="duration" class="form-control" @bind-Value="appointmentTypeForm.Duration" />
-                        <ValidationMessage For="() => appointmentTypeForm.Duration" />
-                    </div>
+                    <MudNumericField @bind-Value="appointmentTypeForm.Duration" For="() => appointmentTypeForm.Duration"
+                                     Label="Duration (minutes)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     Min="5" Max="180" Class="mb-3" />
 
-                    <div class="mb-3">
-                        <label for="messageTemplate" class="form-label">Message Template (Adults) *</label>
-                        <InputTextArea id="messageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MessageTemplate" />
-                        <ValidationMessage For="() => appointmentTypeForm.MessageTemplate" />
-                        <small class="form-text text-muted">
-                            Available placeholders: {ContactName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
-                        </small>
-                    </div>
+                    <MudTextField @bind-Value="appointmentTypeForm.MessageTemplate" For="() => appointmentTypeForm.MessageTemplate"
+                                  Label="Message Template (Adults)" Variant="Variant.Outlined" Lines="4" Class="mb-1"
+                                  HelperText="Placeholders: {ContactName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}" />
 
-                    <div class="mb-3">
-                        <label for="minorMessageTemplate" class="form-label">Message Template (Minors/Parents) *</label>
-                        <InputTextArea id="minorMessageTemplate" class="form-control" rows="4" @bind-Value="appointmentTypeForm.MinorMessageTemplate" />
-                        <ValidationMessage For="() => appointmentTypeForm.MinorMessageTemplate" />
-                        <small class="form-text text-muted">
-                            Available placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}
-                        </small>
-                    </div>
+                    <MudTextField @bind-Value="appointmentTypeForm.MinorMessageTemplate" For="() => appointmentTypeForm.MinorMessageTemplate"
+                                  Label="Message Template (Minors/Parents)" Variant="Variant.Outlined" Lines="4" Class="mb-3 mt-3"
+                                  HelperText="Placeholders: {ContactName}/{ChildName}, {ParentName}, {Salutation}, {FirstName}, {MiddleName}, {LastName}, {LeaderName}, {LeaderTitle}, {DateTime}, {Date}, {Day}, {Time}, {Duration}, {AppointmentType}" />
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
+                    <div class="d-flex gap-2 mt-3">
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success">
                             @(editingType == null ? "Add" : "Update")
-                        </button>
+                        </MudButton>
                         @if (editingType != null)
                         {
-                            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">
-                                Cancel
-                            </button>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CancelEdit">Cancel</MudButton>
                         }
                     </div>
                 </EditForm>
-            </div>
-        </div>
+            </MudCardContent>
+        </MudCard>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <h4>Default Templates</h4>
-            </div>
-            <div class="card-body">
-                <p><small>Click to use as template:</small></p>
-                <div class="list-group">
-                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.GenericMeeting)">
-                        <strong>Generic Meeting</strong><br />
-                        <small>General purpose appointment</small>
-                    </button>
-                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.TempleRecommend)">
-                        <strong>Temple Recommend</strong><br />
-                        <small>Temple recommend interview</small>
-                    </button>
-                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.Tithing)">
-                        <strong>Tithing Settlement</strong><br />
-                        <small>Annual tithing settlement</small>
-                    </button>
-                    <button class="list-group-item list-group-item-action" @onclick="() => UseTemplate(DefaultTemplates.Counseling)">
-                        <strong>Counseling</strong><br />
-                        <small>Personal counseling session</small>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+        <MudCard Elevation="2" Class="mt-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Default Templates</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Class="mb-2 d-block">Click to use as template:</MudText>
+                <MudList T="string">
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Groups" OnClick="() => UseTemplate(DefaultTemplates.GenericMeeting)">
+                        <MudText Typo="Typo.body2"><b>Generic Meeting</b></MudText>
+                        <MudText Typo="Typo.caption">General purpose appointment</MudText>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Church" OnClick="() => UseTemplate(DefaultTemplates.TempleRecommend)">
+                        <MudText Typo="Typo.body2"><b>Temple Recommend</b></MudText>
+                        <MudText Typo="Typo.caption">Temple recommend interview</MudText>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Payments" OnClick="() => UseTemplate(DefaultTemplates.Tithing)">
+                        <MudText Typo="Typo.body2"><b>Tithing Settlement</b></MudText>
+                        <MudText Typo="Typo.caption">Annual tithing settlement</MudText>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Forum" OnClick="() => UseTemplate(DefaultTemplates.Counseling)">
+                        <MudText Typo="Typo.body2"><b>Counseling</b></MudText>
+                        <MudText Typo="Typo.caption">Personal counseling session</MudText>
+                    </MudListItem>
+                </MudList>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 @code {
     private List<AppointmentTypeDto> appointmentTypes = new();

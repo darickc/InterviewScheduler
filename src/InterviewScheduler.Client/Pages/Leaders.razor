@@ -5,167 +5,140 @@
 
 <PageTitle>Leaders</PageTitle>
 
-<h1>Leader Management</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">Leader Management</MudText>
 
-<div class="row">
-    <div class="col-md-8">
-        <button class="btn btn-primary mb-3" @onclick="ShowAddLeader">Add New Leader</button>
-    </div>
-    <div class="col-md-4">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5>Google Calendar Integration</h5>
-            </div>
-            <div class="card-body">
+<MudGrid>
+    <MudItem xs="12" md="8" Class="d-flex align-center">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="ShowAddLeader">
+            Add New Leader
+        </MudButton>
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudCard Elevation="2">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Google Calendar Integration</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
                 @if (isCalendarAuthenticated)
                 {
-                    <div class="text-success">
-                        <i class="bi bi-check-circle"></i> Connected to Google Calendar
-                    </div>
-                    <small class="text-muted">Calendar integration is active</small>
-                    <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearCredentials">
+                    <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">Connected to Google Calendar</MudAlert>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small" OnClick="ClearCredentials">
                         Disconnect
-                    </button>
+                    </MudButton>
                 }
                 else
                 {
-                    <div class="text-warning">
-                        <i class="bi bi-exclamation-triangle"></i> Not connected to Google Calendar
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">Not connected to Google Calendar</MudAlert>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="AuthorizeGoogleCalendar">
+                            Connect Google Calendar
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small" OnClick="ClearCredentials">
+                            Clear Cached Credentials
+                        </MudButton>
                     </div>
-                    <button class="btn btn-outline-primary btn-sm mt-2" @onclick="AuthorizeGoogleCalendar">
-                        Connect Google Calendar
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ClearCredentials">
-                        Clear Cached Credentials
-                    </button>
                 }
-            </div>
-        </div>
-    </div>
-</div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
 @if (showForm)
 {
-    <div class="card mb-4">
-        <div class="card-header">
-            <h3>@(editingLeader == null ? "Add New Leader" : "Edit Leader")</h3>
-        </div>
-        <div class="card-body">
+    <MudCard Elevation="2" Class="my-4">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">@(editingLeader == null ? "Add New Leader" : "Edit Leader")</MudText>
+            </CardHeaderContent>
+        </MudCardHeader>
+        <MudCardContent>
             <EditForm Model="@currentLeader" OnValidSubmit="@SaveLeader">
                 <DataAnnotationsValidator />
-                <ValidationSummary />
 
-                <div class="mb-3">
-                    <label class="form-label">Name</label>
-                    <InputText class="form-control" @bind-Value="currentLeader.Name" />
+                <MudTextField @bind-Value="currentLeader.Name" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+                <MudSelect T="string" @bind-Value="currentLeader.Title" Label="Title" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+                    <MudSelectItem T="string" Value="@("Bishop")">Bishop</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("1st Counselor")">1st Counselor</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("2nd Counselor")">2nd Counselor</MudSelectItem>
+                </MudSelect>
+
+                @if (isCalendarAuthenticated && availableCalendars.Any())
+                {
+                    <MudSelect T="string" @bind-Value="currentLeader.GoogleCalendarId" Label="Google Calendar"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                               HelperText="Select the Google Calendar for this leader">
+                        @foreach (var calendar in availableCalendars)
+                        {
+                            <MudSelectItem T="string" Value="@calendar.Id">@calendar.Name @(calendar.IsPrimary ? "(Primary)" : "")</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                else if (isCalendarAuthenticated)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">No calendars found. Please check your Google Calendar access.</MudAlert>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="LoadCalendars" Class="mb-3">
+                        Refresh Calendars
+                    </MudButton>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">Please connect to Google Calendar first</MudAlert>
+                    <MudTextField @bind-Value="currentLeader.GoogleCalendarId" Label="Calendar ID" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="Or enter calendar ID manually" Class="mb-3"
+                                  HelperText="You can enter a calendar ID manually if not connected" />
+                }
+
+                <MudCheckBox T="bool" @bind-Value="currentLeader.IsActive" Label="Active" Color="Color.Primary" Class="mb-3" />
+
+                <div class="d-flex gap-2">
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Success">Save</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CancelEdit">Cancel</MudButton>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Title</label>
-                    <InputSelect class="form-control" @bind-Value="currentLeader.Title">
-                        <option value="">Select a title</option>
-                        <option value="Bishop">Bishop</option>
-                        <option value="1st Counselor">1st Counselor</option>
-                        <option value="2nd Counselor">2nd Counselor</option>
-                    </InputSelect>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Google Calendar</label>
-                    @if (isCalendarAuthenticated && availableCalendars.Any())
-                    {
-                        <InputSelect class="form-control" @bind-Value="currentLeader.GoogleCalendarId">
-                            <option value="">Select a calendar</option>
-                            @foreach (var calendar in availableCalendars)
-                            {
-                                <option value="@calendar.Id">
-                                    @calendar.Name @(calendar.IsPrimary ? "(Primary)" : "")
-                                </option>
-                            }
-                        </InputSelect>
-                        <small class="form-text text-muted">Select the Google Calendar for this leader</small>
-                    }
-                    else if (isCalendarAuthenticated)
-                    {
-                        <div class="text-warning">
-                            <i class="bi bi-exclamation-triangle"></i> No calendars found. Please check your Google Calendar access.
-                        </div>
-                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" @onclick="LoadCalendars">
-                            Refresh Calendars
-                        </button>
-                    }
-                    else
-                    {
-                        <div class="text-warning">
-                            <i class="bi bi-exclamation-triangle"></i> Please connect to Google Calendar first
-                        </div>
-                        <InputText class="form-control mt-2" @bind-Value="currentLeader.GoogleCalendarId" placeholder="Or enter calendar ID manually" />
-                        <small class="form-text text-muted">You can enter a calendar ID manually if not connected</small>
-                    }
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="currentLeader.IsActive" />
-                        Active
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn-success">Save</button>
-                <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
             </EditForm>
-        </div>
-    </div>
+        </MudCardContent>
+    </MudCard>
 }
 
-<div class="row">
-    <div class="col-md-12">
-        <h3>Current Leaders</h3>
+<MudText Typo="Typo.h5" GutterBottom="true" Class="mt-4">Current Leaders</MudText>
 
-        @if (leaders.Any())
-        {
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Title</th>
-                        <th>Google Calendar ID</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var leader in leaders)
-                    {
-                        <tr>
-                            <td>@leader.Name</td>
-                            <td>@leader.Title</td>
-                            <td>@leader.GoogleCalendarId</td>
-                            <td>
-                                @if (leader.IsActive)
-                                {
-                                    <span class="badge bg-success">Active</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">Inactive</span>
-                                }
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-primary" @onclick="() => EditLeader(leader)">Edit</button>
-                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteLeader(leader)">Delete</button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <p>No leaders configured yet.</p>
-        }
-    </div>
-</div>
+@if (leaders.Any())
+{
+    <MudTable Items="leaders" Dense="true" Hover="true" Striped="true">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Title</MudTh>
+            <MudTh>Google Calendar ID</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh Style="text-align:right">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Title">@context.Title</MudTd>
+            <MudTd DataLabel="Google Calendar ID">@context.GoogleCalendarId</MudTd>
+            <MudTd DataLabel="Status">
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Inactive</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Actions" Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" OnClick="() => EditLeader(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => DeleteLeader(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else
+{
+    <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined">No leaders configured yet.</MudAlert>
+}
 
 @code {
     private List<LeaderDto> leaders = new();
